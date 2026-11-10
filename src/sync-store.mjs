@@ -1,3 +1,4 @@
+import {validateRoster,validateGame,validateSchedule} from './validation.mjs';
 import { CloudError } from './cloud-gateway.mjs';
 const copy = value => structuredClone(value);
 const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
@@ -5,9 +6,9 @@ const sameGame = (a,b) => a && same({...a,auditTrail:null},{...b,auditTrail:null
 const objectKey = op => `${op.type}:${op.id}`;
 const emptyDb = () => ({ games: [], clubRoster: [], schedule: {format:'TR-SCHEDULE-1',season:'球隊賽程',games:[]}, activeId:null, draft:null, settings:{scale:1,pitchView:'split'}, logo:null });
 export class SyncStore {
-  constructor({cloud, repository, online = () => navigator.onLine, uuid = () => crypto.randomUUID(), now = () => new Date().toISOString(), holderToken}) {
-    Object.assign(this,{cloud, repository, online, uuid, now});
-    this.chain = Promise.resolve(); this.token = holderToken || uuid(); this.editors = new Map(); this.status = '尚未同步';
+  constructor({cloud, repository, online = () => navigator.onLine, uuid = () => crypto.randomUUID(), now = () => new Date().toISOString(), holderToken,accountId}) {
+    Object.assign(this,{cloud, repository, online, uuid, now,accountId});
+    this.chain = Promise.resolve(); this.token = holderToken || uuid(); this.editors = new Map(); this.recorders = new Map(); this.status = '尚未同步';
   }
   run(fn) { const next=this.chain.then(fn); this.chain=next.catch(()=>{}); return next; }
   async open() {
@@ -31,9 +32,12 @@ export class SyncStore {
     if (!this.editors.has(gameId)) throw new CloudError('請重新填寫姓名並取得本場紀錄權', 'RECORDER_REQUIRED');
     if (this.workspace.conflicts.some(c=>c.key===`game:${gameId}` && !c.resolved)) throw new CloudError('此場有衝突草稿，請先保留兩份或採用雲端版本', 'REVISION_CONFLICT');
   }
+  assertAccount(userId=this.cloud.session?.user_id) {if(this.accountId&&userId!==this.accountId)throw new CloudError('帳號已變更，舊工作區草稿仍保留','ACCOUNT_CHANGED');}
+  recorderTicket(gameId) { return copy(this.recorders.get(gameId)||null); }
   async beginRecording(gameId, name, isNew=false) {
     this.cloud._assertRecorder(name);
     return this.run(async()=>{
+      if(this.accountId)this.assertAccount();
       for(const id of this.editors.keys()) if(id!==gameId) {
         if(this.online()) await this.cloud.releaseLease?.(id,this.token).catch(error=>{if(error.code!=='OFFLINE')throw error;});
         this.editors.delete(id);
@@ -45,6 +49,7 @@ export class SyncStore {
           if (!await this.cloud.acquireLease(gameId,this.token,name)) throw new CloudError('另一裝置正在紀錄本場；目前只能檢視', 'LEASE_BUSY');
           const row=await this.cloud.getGame(gameId);
           if (!row) throw new CloudError('找不到雲端比賽', 'UNKNOWN_GAME');
+          validateGame(row.state);
           const key=`game:${gameId}`;
           const pending=this.workspace.pending.some(op=>objectKey(op)===key);
           if (pending && row.revision !== (this.workspace.revisions[key]||0)) {
@@ -65,17 +70,18 @@ export class SyncStore {
         this.status='離線草稿：無法確認其他裝置操作';
       } else throw new CloudError('本機尚未快取此比賽','OFFLINE');
       this.editors.set(gameId,name.trim());
+      this.recorders.set(gameId,{gameId,name:name.trim(),nonce:this.uuid()});
       return this.db.games.find(g=>g.id===gameId) || null;
     });
   }
-  async releaseEditors() {
+  releaseEditors() { return this.run(async()=>{
     for(const id of this.editors.keys()) {
       if(this.online()) await this.cloud.releaseLease?.(id,this.token).catch(error=>{if(error.code!=='OFFLINE')throw error;});
       this.editors.delete(id);
     }
-  }
-  commit(db, recorderName, operation='EDIT', importNewGames=false) {
-    const incoming=copy(db);
+  }); }
+  commit(db, recorderName, operation='EDIT', importNewGames=false, ticket=null) {
+    const incoming=copy(db);validateRoster(incoming.clubRoster);incoming.games.forEach(validateGame);validateSchedule(incoming.schedule);
     return this.run(async()=>{
       const next=copy(this.workspace), old=this.baseline;
       // Deletion is archival only; silently dropping a game from a UI cannot erase it.
@@ -83,9 +89,10 @@ export class SyncStore {
       for (const game of incoming.games) {
         const prior=old.games.find(g=>g.id===game.id);
         if (sameGame(prior,game)) { if(prior.auditTrail)game.auditTrail=copy(prior.auditTrail);continue; }
+        const signedTicket=ticket?.gameId===game.id && this.recorders.get(game.id)?.nonce===ticket.nonce;
         if(!prior && importNewGames) this.cloud._assertRecorder(recorderName);
-        else this.assertEditor(game.id);
-        const name=(!prior && importNewGames)?recorderName.trim():this.editors.get(game.id), expected=this.keyRevision('game',game.id), operationId=this.uuid();
+        else if(!signedTicket)this.assertEditor(game.id);
+        const name=(!prior && importNewGames)?recorderName.trim():signedTicket?ticket.name:this.editors.get(game.id), expected=this.keyRevision('game',game.id), operationId=this.uuid();
         game.auditTrail=[...(prior?.auditTrail||[]),{operationId,recorder:name,time:this.now(),operation,revisionBefore:expected,revisionAfter:expected+1,events:copy(game.events?.slice(prior?.events?.length||0)||[])}];
         next.pending.push({type:'game',id:game.id,expected,data:copy(game),name,operation:expected===0?'CREATE':operation,operationId});
       }
@@ -106,7 +113,7 @@ export class SyncStore {
   async _flush() {
     if (!this.online()) { this.status='離線待同步'; this.onChange?.(); return; }
     try {
-      await this.cloud.verifySession(); await this.cloud.memberRole();
+      this.assertAccount((await this.cloud.verifySession()).id); await this.cloud.memberRole();
       const blocked=new Set(this.workspace.conflicts.filter(c=>!c.resolved).map(c=>c.key));
       for (const op of [...this.workspace.pending]) {
         const key=objectKey(op);
@@ -141,14 +148,19 @@ export class SyncStore {
       else this.status='已同步';
     } catch(error) {
       this.status=error.code==='OFFLINE'?'離線待同步':error.message;
-      if(['SESSION_EXPIRED','NOT_SIGNED_IN','NOT_APPROVED'].includes(error.code)) { this.editors.clear(); this.onAuthLost?.(error); }
+      if(['SESSION_EXPIRED','NOT_SIGNED_IN','NOT_APPROVED','SESSION_REVOKED','ACCOUNT_CHANGED'].includes(error.code)) { this.editors.clear(); this.onAuthLost?.(error); }
       this.onChange?.(); throw error;
     }
     this.onChange?.();
   }
   pull() { return this.run(async()=>{
+    this.assertAccount((await this.cloud.verifySession()).id);await this.cloud.memberRole();
     const [roster,schedule,games]=await Promise.all([this.cloud.getDocument('roster'),this.cloud.getDocument('schedule'),this.cloud.listGames()]);
+    await this.cloud.memberRole();
+    validateRoster(roster?.document?.roster||[]);if(schedule)validateSchedule(schedule.document);games.forEach(row=>{validateGame(row.state);if(row.state.id!==row.game_id)throw Error('INVALID_GAME_ID');});
     const next=copy(this.workspace), pending=new Set(next.pending.map(objectKey));
+    if(next.db.games.some(g=>!pending.has(`game:${g.id}`)&&!games.some(row=>row.game_id===g.id)))throw new CloudError('雲端資料不完整，保留目前快取並停止取代','INCOMPLETE_SNAPSHOT');
+    for(const [type,row] of [['roster',roster],['schedule',schedule]])if(!row&&next.revisions[`${type}:${type}`])throw new CloudError('雲端文件不完整，保留目前快取','INCOMPLETE_SNAPSHOT');
     for(const [type,row] of [['roster',roster],['schedule',schedule]]) if(!pending.has(`${type}:${type}`)) {
       next.revisions[`${type}:${type}`]=row?.revision||0;
       if(type==='roster') next.db.clubRoster=row?.document?.roster||[];
@@ -173,6 +185,7 @@ export class SyncStore {
   resolve(key, name, keepBoth=false) { return this.run(async()=>{
     this.cloud._assertRecorder(name);
     const remote=key.startsWith('game:')?await this.cloud.getGame(key.slice(5)):await this.cloud.getDocument(key.split(':')[0]);
+    if(remote){if(key.startsWith('game:'))validateGame(remote.state);else if(key==='roster:roster')validateRoster(remote.document.roster);else validateSchedule(remote.document);}
     const next=copy(this.workspace), ops=next.pending.filter(op=>objectKey(op)===key);
     if (!ops.length) throw new Error('NO_CONFLICT_DRAFT');
     const draft=ops.at(-1).data;

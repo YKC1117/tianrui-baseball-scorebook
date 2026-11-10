@@ -15,7 +15,7 @@ export class CloudError extends Error {
 }
 
 export class TianRuiCloud {
-  constructor({ projectUrl, publishableKey, fetchImpl = (...args) => globalThis.fetch(...args), storage = (typeof sessionStorage === 'undefined' ? null : sessionStorage) } = {}) {
+  constructor({ projectUrl, publishableKey, fetchImpl = (...args) => globalThis.fetch(...args), storage = (typeof sessionStorage === 'undefined' ? null : sessionStorage), timeoutMs = 15000 } = {}) {
     if (typeof projectUrl !== 'string' || !/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/.test(projectUrl))
       throw new Error('Supabase project URL must be HTTPS');
     if (!publishableKey || !/^sb_publishable_[A-Za-z0-9_-]+$/.test(publishableKey))
@@ -23,6 +23,8 @@ export class TianRuiCloud {
     this.url = projectUrl.replace(/\/+$/, '');
     this.key = publishableKey;
     this.fetchImpl = fetchImpl;
+    this.timeoutMs = timeoutMs;
+    this.authGeneration = 0;
     this.storage = storage || { getItem: () => null, setItem: () => {}, removeItem: () => {} };
     this.sessionKey = `TR_SECURE_AUTH_V15:${this.url}`;
     this.session = null;
@@ -31,6 +33,20 @@ export class TianRuiCloud {
 
   get signedIn() { return Boolean(this.session?.access_token); }
   get expiresAt() { return this.session?.expires_at || 0; }
+
+  async _request(path, options) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    try {
+      const response = await this.fetchImpl(`${this.url}${path}`, {cache:'no-store',...options, signal:controller.signal});
+      const raw = await response.text();
+      let payload;
+      try { payload = raw ? JSON.parse(raw) : null; } catch { payload = raw; }
+      return {response,payload};
+    } catch {
+      throw new CloudError('無法連線。資料尚未同步，請保留本機草稿。', 'OFFLINE');
+    } finally { clearTimeout(timer); }
+  }
 
   async _fetch(path, { method = 'GET', body, auth = true, accept, retry = true } = {}) {
     if (auth && !this.signedIn) throw new CloudError('必須先登入', 'NOT_SIGNED_IN', 401);
@@ -41,25 +57,21 @@ export class TianRuiCloud {
       ...(accept ? { Accept: accept } : {}),
       ...(auth ? { Authorization: `Bearer ${this.session.access_token}` } : {})
     };
-    let response;
-    try {
-      response = await this.fetchImpl(`${this.url}${path}`, {
+    const {response,payload} = await this._request(path, {
         method, headers, ...(body === undefined ? {} : { body: JSON.stringify(body) })
       });
-    } catch (err) {
-      throw new CloudError('無法連線。資料尚未同步，請勿切換裝置覆寫紀錄。', 'OFFLINE');
-    }
     if (response.status === 401 && auth && retry && this.session?.refresh_token) {
       await this._refresh();
       return this._fetch(path, { method, body, auth, accept, retry: false });
     }
-    let payload = null;
-    const text = await response.text();
-    try { payload = text ? JSON.parse(text) : null; } catch { payload = text; }
     if (!response.ok) {
-      const detail = payload?.message || payload?.error_description || payload?.error || '伺服器拒絕操作';
-      const known = ['REVISION_CONFLICT','NOT_RECORDING_LEASE_HOLDER','ADMIN_REQUIRED','NOT_APPROVED','OPERATION_ID_REUSED','RECORDER_REQUIRED'];
-      const code = known.find(code => detail.includes(code)) || payload?.code || `HTTP_${response.status}`;
+      if (auth && path.startsWith('/auth/') && [401,403].includes(response.status)) {
+        this.clearSession();
+        throw new CloudError('登入已失效，請重新登入', 'SESSION_EXPIRED', response.status);
+      }
+      const detail = payload?.message || payload?.msg || payload?.error_description || payload?.error || '伺服器拒絕操作';
+      const known = ['REVISION_CONFLICT','NOT_RECORDING_LEASE_HOLDER','ADMIN_REQUIRED','NOT_APPROVED','SESSION_REVOKED','OPERATION_ID_REUSED','RECORDER_REQUIRED'];
+      const code = known.find(code => detail.includes(code)) || payload?.error_code || payload?.code || `HTTP_${response.status}`;
       throw new CloudError(detail, code, response.status);
     }
     return payload;
@@ -83,26 +95,24 @@ export class TianRuiCloud {
   }
 
   async _refreshOnce() {
+    const generation = this.authGeneration;
     const token = this.session?.refresh_token;
     if (!token) throw new CloudError('登入已過期，請重新登入', 'SESSION_EXPIRED');
-    let reply;
-    try {
-      reply = await this.fetchImpl(`${this.url}/auth/v1/token?grant_type=refresh_token`, {
+    const {response:reply,payload} = await this._request('/auth/v1/token?grant_type=refresh_token', {
         method: 'POST',
         headers: { 'apikey': this.key, 'Content-Type': 'application/json' },
         body: JSON.stringify({ refresh_token: token })
       });
-    } catch {
-      throw new CloudError('目前沒有網路，無法更新登入狀態', 'OFFLINE');
-    }
+    if(generation !== this.authGeneration) throw new CloudError('登入狀態已變更','SESSION_EXPIRED');
+    if(reply.status>=500)throw new CloudError('認證服務暫時無法使用，保留本機登入與草稿','OFFLINE',reply.status);
     if (!reply.ok) {
       this.clearSession();
       throw new CloudError('登入已失效，請重新登入', 'SESSION_EXPIRED', reply.status);
     }
-    return this._storeSession(await reply.json());
+    return this._storeSession(payload);
   }
 
-  clearSession() { this.session = null; this.storage.removeItem(this.sessionKey); }
+  clearSession() { this.authGeneration++; this.session = null; this.storage.removeItem(this.sessionKey); }
 
   async signIn(email, password) {
     this.clearSession();

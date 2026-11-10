@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='tianrui-baseball-v1.5-review-1';
+const VERSION='tianrui-baseball-v1.5-review-2';
 const FILES=['./','./index.html','./schedule.html','./publish.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./logo-tianrui.png',
  './src/app.mjs','./src/config.mjs','./src/cloud-gateway.mjs','./src/workspace-store.mjs','./src/sync-store.mjs','./src/validation.mjs','./src/scorebook.mjs','./src/schedule.mjs'];
 const ALLOWED=new Set(FILES.map(path=>new URL(path,self.location.href).href));

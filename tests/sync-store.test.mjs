@@ -30,7 +30,7 @@ class Backend {
  }
 }
 async function setup(backend=new Backend(),repository=new MemoryStore(),online=()=>true){const engine=await new SyncStore({cloud:backend.client(),repository,online}).open();return{engine,backend,repository};}
-const minimalGame=id=>({id,events:[],away:{},home:{}});
+const minimalGame=id=>{const roster=Array.from({length:9},(_,i)=>({id:'p'+i,name:'fixture '+i,num:''}));const team={name:'fixture',roster,lineup:roster.map(p=>p.id),pitcher:'p0',stats:{},pitchStats:{}};return{id,side:'away',half:'top',inning:1,score:{away:Array(9).fill(0),home:Array(9).fill(null)},events:[],away:clone(team),home:clone(team)};};
 test('durable outbox preserves order and stable IDs across lost responses and reload',async()=>{
  const{engine,backend,repository}=await setup();await engine.beginRecording('id_test','紀錄甲',true);
  let db=engine.db;db.games.push(minimalGame('id_test'));await engine.commit(db,'紀錄甲');
@@ -94,4 +94,26 @@ test('cached game remains editable as an offline draft when navigator reports on
  await engine.beginRecording('id_test','紀錄甲');const db=engine.db;db.games[0].events.push({kind:'offline'});await engine.commit(db,'紀錄甲');
  assert.equal(engine.pendingCount,1);assert.equal(backend.audit.length,0);
  await assert.rejects(()=>engine.beginRecording('id_uncached','紀錄甲'),e=>e.code==='OFFLINE');
+});
+test('an authorized foreground snapshot survives lease loss before its local commit runs',async()=>{
+ const{engine,backend}=await setup();backend.games.set('id_test',{game_id:'id_test',revision:1,state:minimalGame('id_test')});await engine.pull();await engine.beginRecording('id_test','紀錄甲');
+ const ticket=engine.recorderTicket('id_test'),db=engine.db;db.games[0].events.push({kind:'pitch'});
+ backend.busy=true;await engine.heartbeat();assert.throws(()=>engine.assertEditor('id_test'));
+ await engine.commit(db,'','EDIT',false,ticket);assert.equal(engine.pendingCount,1);assert.equal(engine.db.games[0].events.length,1);
+ await engine.flush();assert.equal(engine.pendingCount,1);assert.equal(backend.games.get('id_test').state.events.length,0);
+});
+test('pull rejects revoked access and incomplete cloud snapshots without erasing cached data',async()=>{
+ const{engine,backend}=await setup();backend.games.set('id_test',{game_id:'id_test',revision:1,state:minimalGame('id_test')});await engine.pull();
+ engine.cloud.listGames=async()=>[];await assert.rejects(()=>engine.pull(),error=>error.code==='INCOMPLETE_SNAPSHOT');assert.equal(engine.db.games.length,1);
+ engine.cloud.memberRole=async()=>{throw new CloudError('NOT_APPROVED','NOT_APPROVED');};await assert.rejects(()=>engine.pull(),e=>e.code==='NOT_APPROVED');assert.equal(engine.db.games.length,1);
+});
+test('malformed remote roster IDs cannot enter a rendered or persisted workspace',async()=>{
+ const{engine,backend}=await setup();await engine.pull();const generation=engine.workspace.generation;
+ backend.docs.set('roster',{revision:1,document:{roster:[{id:'bad" autofocus onfocus="alert(1)',num:'',name:'fixture'}]}});
+ await assert.rejects(()=>engine.pull(),/名冊/);assert.equal(engine.workspace.generation,generation);assert.deepEqual(engine.db.clubRoster,[]);
+});
+test('an old account workspace cannot flush its drafts under a new account session',async()=>{
+ const{engine,backend}=await setup();await engine.beginRecording('id_test','紀錄甲',true);const db=engine.db;db.games.push(minimalGame('id_test'));await engine.commit(db,'紀錄甲');
+ engine.accountId='original-account';engine.cloud.verifySession=async()=>({id:'different-account'});
+ await assert.rejects(()=>engine.flush(),e=>e.code==='ACCOUNT_CHANGED');assert.equal(engine.pendingCount,1);assert.equal(backend.audit.length,0);
 });

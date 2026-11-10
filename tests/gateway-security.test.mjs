@@ -42,3 +42,20 @@ test('new game RPC includes first device lease in the same request',async()=>{
  await cloud.createGame({id:'id_new'},'紀錄甲','operation-fixture','holder-fixture');
  assert.equal(sent.p_holder_token,'holder-fixture');assert.equal(sent.p_operation_id,'operation-fixture');
 });
+test('late refresh cannot resurrect a cleared session',async()=>{
+ let finish;const cloud=new TianRuiCloud({...config,storage:memory(),fetchImpl:()=>new Promise(resolve=>{finish=resolve;})});
+ cloud._storeSession({access_token:'fixture',refresh_token:'fixture',expires_in:1});
+ const pending=cloud._refresh();cloud.clearSession();finish(response({access_token:'new-fixture',refresh_token:'new-fixture',expires_in:3600}));
+ await assert.rejects(()=>pending,error=>error.code==='SESSION_EXPIRED');assert.equal(cloud.signedIn,false);
+});
+test('interrupted response bodies and request timeouts preserve an offline error',async()=>{
+ const cloud=new TianRuiCloud({...config,storage:memory(),timeoutMs:5,fetchImpl:async()=>({text:async()=>{throw Error('body interrupted');}})});
+ await assert.rejects(()=>cloud.signIn('fixture@test.invalid','fixture'),e=>e.code==='OFFLINE');
+ cloud.fetchImpl=async(url,{signal})=>new Promise((resolve,reject)=>signal.addEventListener('abort',()=>reject(Error('aborted'))));
+ await assert.rejects(()=>cloud.signIn('fixture@test.invalid','fixture'),e=>e.code==='OFFLINE');
+});
+test('transient Auth 5xx does not discard refresh tokens',async()=>{
+ const cloud=new TianRuiCloud({...config,storage:memory(),fetchImpl:async()=>response({},503)});
+ cloud._storeSession({access_token:'fixture',refresh_token:'fixture',expires_in:1});
+ await assert.rejects(()=>cloud.getDocument('roster'),e=>e.code==='OFFLINE');assert.equal(cloud.signedIn,true);
+});

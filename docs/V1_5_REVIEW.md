@@ -1,10 +1,10 @@
-# 天睿棒球紀錄系統 v1.5｜施工與測試報告
+# 天睿棒球紀錄系統 v1.5｜第二階段施工與測試報告
 
 日期：2026-11-10（台灣時間）
 分支：`work/secure-sharing-v15`
 審查：[Draft PR #1](https://github.com/YKC1117/tianrui-baseball-scorebook/pull/1)
 
-**狀態：可審查的整合候選版，尚未正式上線。沒有合併 main、修改正式站或使用其他公司的 Supabase。**
+**狀態：接續 39a01ee 的可部署候選程式（正式後端與真機未驗收），尚未正式上線。沒有合併 main、修改正式站或使用其他公司的 Supabase。**
 
 已閱讀附件施工包、main 與開發分支、原有 SQL／REST adapter／登入頁／測試及 Draft PR #1；PR 原本沒有評論或 review。附件用作參考，施工範圍依本次需求。
 
@@ -25,14 +25,27 @@
 
 | 驗證 | 結果 | 範圍 |
 |---|---|---|
-| Node 測試 | 18 通過 | 含原始 gateway 六情境、refresh、登出、操作重試、佇列、衝突、備份、儲存失敗、跨分頁版本及統計 |
-| 真實本機 PostgreSQL 17.11 | 48 項斷言通過 | 套用完整 SQL，RLS、匿名／未核准拒絕、直接寫表拒絕、兩角色、租約、相同請求重試與兩個連線競寫 |
-| Playwright | 22 通過 | Chromium 手機尺寸與 WebKit 平板尺寸各 11 案例；包含兩個獨立 browser context 共用帳號、離線重載、PWA、衝突 UI、備份還原及賽程權限 |
+| Node 測試 | 29 通過 | 含原始 gateway 六情境、refresh、登出、操作重試、佇列、衝突、備份、儲存失敗、跨分頁版本及統計 |
+| 真實本機 PostgreSQL 17.11 | 63 項斷言通過 | 套用完整 SQL，RLS、匿名／未核准拒絕、直接寫表拒絕、兩角色、租約、相同請求重試與兩個連線競寫 |
+| Playwright | 28 通過 | Chromium 手機尺寸與 WebKit 平板尺寸各 14 案例；包含兩個獨立 browser context 共用帳號、離線重載、PWA、衝突 UI、備份還原及賽程權限 |
+| 真實本機 Auth／REST | 26 項檢查通過 | GoTrue v2.197.0、PostgREST v14.18、密碼登入、停用 signup、撤權、同帳號不同 session、資料庫 dump 還原 |
 | 統計數值 | 通過 | 二次登板 8 outs + 6 outs = 4.2 IP，分次 2.2／2.0；ERA／WHIP、打擊、跑壘、R/H、提前結束 |
 | 程式與依賴 | 通過 | 模組語法、git diff --check、npm audit 零已知漏洞；正式環境無新增 npm runtime 依賴 |
 | Logo／圖示 | 通過 | 與 main 逐位元組比對相同 |
 
-測試只用人工合成資料。瀏覽器中的 Supabase API 是攔截 fixture，並非遠端登入成功；PostgreSQL 測試確實執行 SQL，但以本機 auth.uid fixture 代替 Supabase Auth。WebKit 是 Linux 自動化環境，不能替代 iOS 真機。初次測試抓到的原生 fetch 呼叫與新建比賽租約空窗已修正並加入回歸驗證。
+測試只用人工合成資料。26 個瀏覽器案例使用攔截 fixture；另外 2 個案例把請求轉送至本機真實 GoTrue／PostgREST／PostgreSQL，實際執行 Auth、JWT、RLS 與交易。這仍不代表遠端 Supabase gateway／TLS／專案設定已驗收。PostgreSQL 權限測試另使用本機 auth.uid／sessions fixture；Linux WebKit 不代表 iOS 真機。
+
+## 第二階段實際修正
+
+- 修正租約失效與前景儲存交錯時可能丟掉修改的問題；已授權的前景快照會保留姓名票據並寫入 outbox；工作區綁定 Auth user ID，舊帳號草稿不會由新帳號送出，失去紀錄權後的新操作仍會被阻止。
+- 修正封存先清空 activeId 導致修改未入列的問題；遊戲與既有成績保留，另有稽核。
+- 首頁繼續比賽強制重新填姓名，新增明確交出紀錄權流程。
+- RLS／RPC 依真實 Auth session、停用時間及會員狀態授權；已登出、Auth ban、session 到期或 membership 停用均無法沿用舊 JWT 讀寫。
+- 拉取前後確認會員權限；缺頁、異常空資料或惡意／無效 ID 不會取代已有快取。名冊、賽程與遊戲在前端及交易入口驗證。
+- 請求含回應 body 的 15 秒 timeout、body 中斷視為離線、暫時性 Auth 5xx 保留登入；登出後遲到的 refresh 不得復活 session。
+- 除新版 bootstrap 外，加入保留既有資料的 002 upgrade 與自動 drift 檢查；本機從 39a01ee schema 升級，保留 game／audit／操作 ID 並驗證撤權。
+- 真實本機資料庫 dump 還原比較 game／audit／requests 內容 checksum 及 RLS／ACL；原始 dump 只在測試程序記憶體，不提交 repository。
+- 新增不需密碼的只讀公開邊界 preflight，以及只讀 Git 歷史盤點工具。盤點與清理方案見 [PRIVACY_MIGRATION.md](PRIVACY_MIGRATION.md)。
 
 ## 尚未完成與限制
 
@@ -51,6 +64,9 @@ npm test
 docker run --name tr-v15-postgres -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:17-alpine
 # 等候 docker exec tr-v15-postgres pg_isready -U postgres 成功
 npm run test:db
+npm run test:local
+node scripts/build-upgrade.mjs --check
+npm run privacy:inventory
 npx playwright install --with-deps chromium webkit
 npm run test:browser
 ```
@@ -60,3 +76,5 @@ npm run test:browser
 ## 回復方式
 
 正式站仍在原 main commit，無需回退部署。若試用本分支，先匯出完整工作區，再回到舊站；舊版本機資料鍵未改寫。不要清除網站儲存、重設資料庫或以舊快照直接覆蓋雲端。後端上線前仍需獨立備份與還原演練。
+
+擁有者最少操作步驟：[OWNER_STEPS.md](OWNER_STEPS.md)。沒有執行 force push、歷史重寫或刪除正式資料。

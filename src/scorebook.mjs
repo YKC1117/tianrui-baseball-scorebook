@@ -1,6 +1,6 @@
 
 'use strict';
-export function mountScorebook({initialDb,onSave,onRecorder,onGuard,onError,securityPanel}){
+export function mountScorebook({initialDb,onSave,onRecorder,onGuard,onError,securityPanel,onCapture=()=>null}){
 const resultNames={"1B":"一壘安打","2B":"二壘安打","3B":"三壘安打","HR":"全壘打","BB":"四壞保送","IBB":"故意四壞","HBP":"觸身球","SO":"三振","GO":"滾地出局","FO":"飛球出局","SF":"高飛犧牲打","SH":"犧牲觸擊","FC":"野手選擇","ROE":"失誤上壘","DP":"雙殺打"};
 const ADV={SB:'盜壘',CS:'盜壘刺',WP:'暴投',PB:'捕逸',BK:'投手犯規',ADV:'其他進壘／跑壘'};
 const n=(v)=>Number(v)||0;const uid=()=>('id_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36));
@@ -36,8 +36,8 @@ function importClubRoster(raw){const x=JSON.parse(raw),list=x?.roster;if(x?.form
 
 let saving=Promise.resolve();
 function save(){
-  const value=deep(db);
-  saving=saving.then(()=>onSave(value)).then(saved=>{for(const game of db.games){const cloudGame=saved?.games?.find(g=>g.id===game.id);if(cloudGame?.auditTrail)game.auditTrail=deep(cloudGame.auditTrail);}saveError='';}).catch(error=>{saveError=error.message+'；請立即備份目前草稿。';onError(error);});
+  const value=deep(db),ticket=currentRecorder?onCapture(currentRecorder.gameId):null;
+  saving=saving.then(()=>onSave(value,ticket)).then(saved=>{for(const game of db.games){const cloudGame=saved?.games?.find(g=>g.id===game.id);if(cloudGame?.auditTrail)game.auditTrail=deep(cloudGame.auditTrail);}saveError='';}).catch(error=>{saveError=error.message+'；請立即備份目前草稿。';onError(error);});
   return saving;
 }
 
@@ -104,7 +104,7 @@ async function recorderConfirm(){
   finally{recorderConfirm.busy=false;}
 }
 function navigate(t){
-  if(['record','lineup'].includes(t)&&g()&&!recorderIsActive()){recorderPrompt({type:'enter',tab:t});return;}
+  if(['record','lineup'].includes(t)&&g()&&(!recorderIsActive()||(t==='record'&&tab==='home'))){recorderPrompt({type:'enter',tab:t});return;}
   tab=t;modal=null;render();window.scrollTo({top:0,behavior:'instant'});
 }
 function alertText(t){window.alert(t);}

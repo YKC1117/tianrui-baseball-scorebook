@@ -10,11 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - run: node scripts/build-upgrade.mjs --check
       - run: npm test
       - name: Start isolated test database
         run: |
@@ -25,5 +28,6 @@ jobs:
           done
           exit 1
       - run: npm run test:db
+      - run: npm run test:local
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser

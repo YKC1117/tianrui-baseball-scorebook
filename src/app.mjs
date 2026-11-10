@@ -28,7 +28,7 @@ async function askName() {
  if(name===null)return null;cloud._assertRecorder(name);return name.trim();
 }
 function backup(){const value=JSON.parse(engine.backup());if(ui?.getState)value.unsavedUi=ui.getState();return JSON.stringify(value,null,2);}
-function panel(){return `<section class="notice blue" aria-label="同步狀態"><div class="row between"><span id="syncStatus" role="status"></span><div class="row"><button class="btn small" id="syncNow">重新同步／讀取</button><button class="btn small" id="allBackup">完整備份</button><button class="btn small" id="importLegacy">匯入舊版／還原備份</button><button class="btn small" id="logout">登出</button></div></div><div id="conflictActions"></div></section>`;}
+function panel(){return `<section class="notice blue" aria-label="同步狀態"><div class="row between"><span id="syncStatus" role="status"></span><div class="row"><button class="btn small" id="syncNow">重新同步／讀取</button><button class="btn small" id="releaseRecording">交出紀錄權</button><button class="btn small" id="allBackup">完整備份</button><button class="btn small" id="importLegacy">匯入舊版／還原備份</button><button class="btn small" id="logout">登出</button></div></div><div id="conflictActions"></div></section>`;}
 function updateStatus(){
  if(el('syncStatus'))el('syncStatus').textContent=`${role==='admin'?'管理員':'共用紀錄帳號'} · ${engine.status} · 待同步 ${engine.pendingCount} 筆 · 最後成功：${engine.workspace.lastSuccess?new Date(engine.workspace.lastSuccess).toLocaleString('zh-TW'):'尚無'}`;
  if(el('conflictActions')){
@@ -58,6 +58,7 @@ async function start(){
   if(error.code!=='OFFLINE'||!approved||approved.id!==cloud.session?.user_id||Date.now()>=cloud.expiresAt)throw error;
   user={id:approved.id};role=approved.role;
  }
+ documentRecorder='';
  const key=`${cloud.url}:${user.id}`;
  if(activeLockKey&&activeLockKey!==key){releaseLock?.();releaseLock=null;}activeLockKey=key;
  if(!navigator.locks)throw Error('此瀏覽器不支援安全分頁鎖，請更新瀏覽器後再使用。');
@@ -66,35 +67,38 @@ async function start(){
   if(!locked)throw Error('同一瀏覽器已有開啟中的紀錄分頁，請回到該分頁操作。');
  }
  const holderKey=`TR_HOLDER_V15:${key}`;let holderToken=sessionStorage.getItem(holderKey);if(!holderToken){holderToken=crypto.randomUUID();sessionStorage.setItem(holderKey,holderToken);}
- engine=await new SyncStore({cloud,repository:new WorkspaceStore(key),holderToken}).open();
+ engine=await new SyncStore({cloud,repository:new WorkspaceStore(key),holderToken,accountId:user.id}).open();
  if(navigator.onLine){try{await engine.flush();await engine.pull();}catch(error){if(error.code!=='OFFLINE'||!engine.workspace.lastSuccess)throw error;engine.status='離線待同步；目前顯示快取資料';}}
  else if(!engine.workspace.lastSuccess)throw Error('首次登入必須連網下載資料。');
  else engine.status='離線待同步；目前顯示快取資料';
+ const currentEngine=engine;let mounted;
  const cached=engine.db;validateRoster(cached.clubRoster);cached.games.forEach(validateGame);
- const onError=error=>{engine.status=error.message;updateStatus();};
- const onSave=async db=>{
-  const stored=engine.db;
+ const onError=error=>{if(engine!==currentEngine)return;currentEngine.status=error.message;updateStatus();};
+ const onSave=async (db,ticket)=>{
+  const stored=currentEngine.db;
   // Read-only stat rendering can normalize legacy pitching fields. Persist only
   // games for which this page has explicitly entered a recording session.
-  db.games=db.games.map(game=>engine.editors.has(game.id)?game:stored.games.find(g=>g.id===game.id)||game);
+  db.games=db.games.map(game=>ticket?.gameId===game.id?game:stored.games.find(g=>g.id===game.id)||game);
   validateRoster(db.clubRoster);db.games.forEach(validateGame);
   for(const game of db.games)if(game.logo)delete game.logo;
-  await engine.commit(db,documentRecorder,'EDIT');updateStatus();
-  void engine.flush().catch(onError);return engine.db;
+  await currentEngine.commit(db,documentRecorder,'EDIT',false,ticket);updateStatus();
+  void currentEngine.flush().catch(onError);return currentEngine.db;
  };
- if(location.pathname.endsWith('/schedule.html'))ui=mountSchedule({engine,role,panel,updateStatus});
- else ui=mountScorebook({initialDb:engine.db,onSave,onError,securityPanel:panel,
-  onRecorder:async(id,name,isNew)=>{await ui?.settled();return engine.beginRecording(id,name,isNew);},
+ if(location.pathname.endsWith('/schedule.html'))mounted=mountSchedule({engine,role,panel,updateStatus});
+ else mounted=mountScorebook({initialDb:currentEngine.db,onSave,onError,securityPanel:panel,
+  onCapture:id=>currentEngine.recorderTicket(id),
+  onRecorder:async(id,name,isNew)=>{await mounted?.settled();return currentEngine.beginRecording(id,name,isNew);},
   onGuard:async(type,id)=>{
-   if(type==='view'){await ui?.settled();await engine.releaseEditors();return true;}
-   if(type==='game'){engine.assertEditor(id);return true;}
+   if(type==='view'){await mounted?.settled();await currentEngine.releaseEditors();return true;}
+   if(type==='game'){currentEngine.assertEditor(id);return true;}
    if(type==='import')return askName();
    if(!documentRecorder)documentRecorder=await askName();
    return documentRecorder;
   }
  });
- engine.onChange=updateStatus;
- engine.onAuthLost=()=>{ui?.destroy?.();ui=null;gate('登入已失效，待同步草稿仍保留，請重新登入。');};
+ currentEngine.onChange=updateStatus;
+ ui=mounted;
+ currentEngine.onAuthLost=()=>{if(engine!==currentEngine)return;sessionStorage.removeItem(approvalKey);const previous=ui;previous?.destroy?.();void Promise.resolve(previous?.settled()).finally(()=>{if(ui!==previous)return;ui=null;gate('登入已失效，待同步草稿仍保留，請重新登入。');});};
  updateStatus();
 }
 // Buttons survive scorebook renders through delegation. Ordinary mutation handlers
@@ -105,6 +109,7 @@ document.addEventListener('click',async event=>{
  try {
   if(id==='allBackup'){await ui.settled();download(backup(),'tianrui-workspace-backup.json');}
   if(id==='syncNow'){await ui.settled();await engine.flush();ui.replace(await engine.pull());updateStatus();}
+  if(id==='releaseRecording'){await ui.settled();await engine.flush();if(engine.pendingCount)throw Error('仍有未同步操作，請先備份並處理同步，尚未交出紀錄權。');await engine.releaseEditors();ui.replace(engine.db);engine.status='紀錄權已交出；再次紀錄需重新填寫姓名';updateStatus();}
   if(id==='logout'){
    await ui.settled();documentRecorder='';
    await engine.releaseEditors().catch(()=>{});engine.editors.clear();

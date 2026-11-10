@@ -133,3 +133,16 @@ test('conflict UI retains draft and can explicitly keep both versions',async({pa
  await page.locator('#syncNow').click();await expect.poll(()=>backend.games.size).toBe(2);
  expect(backend.games.get(current.game_id).state.balls).toBe(2);expect([...backend.games.values()].find(g=>g.game_id!==current.game_id).state.balls).toBe(1);
 });
+test('archiving preserves cloud game, stats and audit instead of silently discarding the edit',async({page,context})=>{
+ const backend=await mockCloud(context);await login(page);await startGame(page);await page.locator('[data-pitch="B"]').click();
+ await nav(page,'files');page.once('dialog',d=>d.accept());await page.locator('#deleteGame').click();
+ await expect.poll(()=>[...backend.games.values()][0].state.archived).toBe(true);
+ expect([...backend.games.values()][0].state.balls).toBe(1);expect([...backend.games.values()][0].state.auditTrail.length).toBeGreaterThan(1);
+});
+test('continuing from home requests a fresh recorder name and recording rights can be handed off',async({page,context})=>{
+ const backend=await mockCloud(context);await login(page);await startGame(page);await nav(page,'home');await nav(page,'record');
+ await expect(page.locator('#recorderName')).toHaveValue('');await page.locator('#recorderName').fill('接續測試乙');await page.locator('#recorderConfirm').click();
+ await expect.poll(()=>[...backend.games.values()][0].state.recorderSessions.length).toBe(2);
+ await page.locator('#releaseRecording').click();await expect(page.locator('#syncStatus')).toContainText('紀錄權已交出');
+ expect(backend.leases.size).toBe(0);
+});
