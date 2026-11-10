@@ -13,6 +13,13 @@ self.addEventListener('fetch',event=>{
  // No API data, tokens, arbitrary responses or private exports enter CacheStorage.
  if(!ALLOWED.has(url.href))return;
  event.respondWith(caches.open(VERSION).then(async cache=>{
+  // Public project settings may change after initial setup. Online reload must
+  // see the current settings without requiring the user to erase device data.
+  if(url.pathname.endsWith('/src/config.mjs')){
+   try{const response=await fetch(event.request,{cache:'no-cache'});if(response.ok){await cache.put(url.href,response.clone());return response;}}catch{}
+   const cached=await cache.match(url.href);if(cached)return cached;
+   throw Error('Public configuration unavailable offline');
+  }
   const cached=await cache.match(url.href);if(cached)return cached;
   return fetch(event.request);
  }));
