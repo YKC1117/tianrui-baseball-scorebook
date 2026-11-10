@@ -1,0 +1,89 @@
+// Real PostgreSQL tests in an isolated local Docker database; never a hosted project.
+import assert from 'node:assert/strict';
+import {execFileSync,execFile} from 'node:child_process';
+import {promisify} from 'node:util';
+import {readFileSync} from 'node:fs';
+import {randomUUID} from 'node:crypto';
+const container=process.env.TR_TEST_CONTAINER||'tr-v15-postgres';
+const database='tr_v15_test';
+const exec=promisify(execFile);
+const args=['exec',container,'psql','-U','postgres','-v','ON_ERROR_STOP=1','-At'];
+const sql=(text,db=database)=>execFileSync('docker',[...args,'-d',db,'-c',text],{encoding:'utf8',stdio:['pipe','pipe','pipe']}).trim();
+const asyncSql=text=>exec('docker',[...args,'-d',database,'-c',text]);
+const admin='00000000-0000-4000-8000-000000000001',recorder='00000000-0000-4000-8000-000000000002',outsider='00000000-0000-4000-8000-000000000003';
+const token=randomUUID(),otherToken=randomUUID();
+const quote=value=>"'"+String(value).replaceAll("'","''")+"'";
+const json=value=>quote(JSON.stringify(value))+'::jsonb';
+const transaction=(body,user=recorder,role='authenticated')=>`begin;set local role ${role};select set_config('request.jwt.claim.sub',${quote(user||'')},true);${body};commit;`;
+const run=(body,user,role)=>sql(transaction(body,user,role));
+let assertions=0;
+function check(condition,message){assert.ok(condition,message);assertions++;}
+function denied(body,pattern,user,role){assert.throws(()=>run(body,user,role),pattern);assertions++;}
+sql(`drop database if exists ${database}`,'postgres');sql(`create database ${database}`,'postgres');
+sql(`do $$begin if not exists(select 1 from pg_roles where rolname='anon') then create role anon nologin;end if;if not exists(select 1 from pg_roles where rolname='authenticated') then create role authenticated nologin;end if;end$$;
+create schema auth;create table auth.users(id uuid primary key);create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;grant usage on schema auth to anon,authenticated;grant execute on function auth.uid() to anon,authenticated;
+insert into auth.users values('${admin}'),('${recorder}'),('${outsider}');`);
+sql(readFileSync(new URL('../staging/sql/001_shared_backend.sql',import.meta.url),'utf8'));
+sql(`insert into public.tr_members(user_id,member_role) values('${admin}','admin'),('${recorder}','recorder')`);
+check(sql("select count(*) from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ('public','tr_private') and c.relkind='r' and not c.relrowsecurity")==='0','All tables have RLS');
+for(const table of ['tr_members','tr_documents','tr_games','tr_leases','tr_audit']){
+ denied(`select * from public.${table}`,/permission denied/,null,'anon');
+ denied(`delete from public.${table}`,/permission denied/);
+}
+denied('select public.tr_member_role()',/permission denied/,null,'anon');
+denied('select public.tr_member_role()',/NOT_APPROVED/,outsider);
+check(run('select count(*) from public.tr_games',outsider).includes('\n0\n'),'Outsider cannot read games');
+denied('select * from public.tr_leases',/permission denied/);
+denied('select * from tr_private.requests',/permission denied/);
+denied("update public.tr_members set member_role='admin'",/permission denied/);
+assert.throws(()=>sql(`insert into public.tr_members values('${outsider}','recorder',true,now())`),/duplicate key/);assertions++;
+const doc=(rev,id=randomUUID(),data={roster:[]},name='紀錄甲',key='roster')=>`select public.tr_save_document('${key}',${rev},${json(data)},${quote(name)},'${id}','EDIT')`;
+denied(doc(0,undefined,{},' '),/RECORDER_REQUIRED/);
+denied(doc(0,undefined,{},'紀錄甲','schedule'),/ADMIN_REQUIRED/);
+run(doc(0,undefined,{},'管理甲','schedule'),admin);
+const rosterOp=randomUUID();run(doc(0,rosterOp));run(doc(0,rosterOp));
+check(sql("select revision from tr_documents where doc_key='roster'")==='1','Idempotent document save');
+denied(doc(0),/REVISION_CONFLICT/);
+denied(doc(0,rosterOp,{roster:[{}]}),/OPERATION_ID_REUSED/);
+const team={roster:Array.from({length:9},(_,i)=>({id:'p'+i,name:'fixture '+i,num:''})),lineup:Array.from({length:9},(_,i)=>'p'+i),stats:{},pitchStats:{}};
+const game={id:'test_game',side:'away',half:'top',inning:1,away:team,home:team,events:[],score:{away:Array(9).fill(0),home:Array(9).fill(null)}};
+const createOp=randomUUID();const create=(op=createOp,data=game)=>`select public.tr_create_game('test_game',${json(data)},'紀錄甲','${op}','${token}')`;
+denied(create(randomUUID(),{id:'test_game'}),/INVALID_GAME_STATE/);
+run(create());run(create());
+check(sql("select count(*) from tr_leases where game_id='test_game'")==='1','New game owns first lease atomically');
+denied(create(randomUUID()),/REVISION_CONFLICT/);
+denied(create(createOp,{...game,events:[1]}),/OPERATION_ID_REUSED/);
+const acquire=(t=token,name='紀錄甲')=>`select public.tr_acquire_lease('test_game','${t}','${name}')`;
+check(run(acquire()).includes('\nt\n'),'First device acquires lease');
+check(run(acquire(otherToken)).includes('\nf\n'),'Shared account second device denied lease');
+const save=(rev,op=randomUUID(),data=game,t=token,name='紀錄甲')=>`select public.tr_save_game('test_game',${rev},${json(data)},'${name}','${t}','${op}','PITCH')`;
+denied(save(1,undefined,game,otherToken),/NOT_RECORDING_LEASE_HOLDER/);
+denied(save(1,undefined,game,token,'紀錄乙'),/NOT_RECORDING_LEASE_HOLDER/);
+const saveOp=randomUUID();run(save(1,saveOp));run(save(1,saveOp));
+check(sql("select revision from tr_games where game_id='test_game'")==='2','Duplicate retry changes game exactly once');
+denied(save(1),/REVISION_CONFLICT/);
+denied(save(1,saveOp,{...game,events:[1]}),/OPERATION_ID_REUSED/);
+denied(save(1,saveOp,game,token),/OPERATION_ID_REUSED/,admin);
+check(sql("select count(*) from tr_audit where object_type='game'")==='2','Immutable create and update audit');
+check(sql("select bool_and(details ? 'events' and recorder_name<>'') from tr_audit where object_type='game'")==='t','Audit stores content and recorder');
+// Two independent connections race at the same expected revision.
+let results=await Promise.allSettled([asyncSql(transaction(save(2))),asyncSql(transaction(save(2)))]);
+check(results.filter(r=>r.status==='fulfilled').length===1,'Exactly one simultaneous CAS write succeeds');
+check(results.some(r=>r.status==='rejected'&&r.reason.stderr.includes('REVISION_CONFLICT')),'Losing CAS gets explicit conflict');
+// Race two identical requests, simulating an uncertain response retry.
+const concurrentOp=randomUUID();results=await Promise.allSettled([asyncSql(transaction(save(3,concurrentOp))),asyncSql(transaction(save(3,concurrentOp)))]);
+check(results.every(r=>r.status==='fulfilled'),'Concurrent identical retries both acknowledge');
+check(sql("select revision from tr_games where game_id='test_game'")==='4','Concurrent retry increments once');
+sql("update tr_leases set expires_at=clock_timestamp()-interval '1 second'");
+denied(save(4),/NOT_RECORDING_LEASE_HOLDER/);
+check(run(acquire(otherToken,'紀錄乙')).includes('\nt\n'),'Expired lease can be taken over');
+denied(save(4),/NOT_RECORDING_LEASE_HOLDER/);
+run(save(4,randomUUID(),game,otherToken,'紀錄乙'));
+// Old acknowledged operation can be retried after takeover without applying again.
+run(save(1,saveOp));
+check(sql("select revision from tr_games where game_id='test_game'")==='5','Lost ACK retry after takeover cannot rewind state');
+sql(`update tr_members set enabled=false where user_id='${recorder}'`);
+denied(acquire(),/NOT_APPROVED/);
+check(run('select count(*) from tr_games').includes('\n0\n'),'Disabled member sees no games');
+check(run('select count(*) from tr_audit').includes('\n0\n'),'Disabled member sees no audit');
+console.log(`PASS PostgreSQL ${sql('show server_version')}: ${assertions} authorization, audit, lease and concurrency assertions`);

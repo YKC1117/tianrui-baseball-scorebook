@@ -1,0 +1,29 @@
+name: v1.5 checks
+on:
+  pull_request:
+  push:
+    branches: [work/secure-sharing-v15]
+permissions:
+  contents: read
+jobs:
+  offline-verification:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Start isolated test database
+        run: |
+          docker run --name tr-v15-postgres -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:17-alpine
+          for i in $(seq 1 30); do
+            if docker exec tr-v15-postgres pg_isready -U postgres; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - run: npm run test:db
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:browser
