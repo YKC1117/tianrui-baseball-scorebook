@@ -1,0 +1,124 @@
+rules_version = '2';
+service cloud.firestore {
+ match /databases/{database}/documents {
+  function access() { return get(/databases/$(database)/documents/access/team).data; }
+  function member() {
+   return request.auth != null && request.auth.token.firebase.sign_in_provider == 'password'
+    && access().adminUid is string && access().recorderUid is string
+    && access().adminUid != access().recorderUid
+    && ((request.auth.uid == access().adminUid && access().adminEnabled == true)
+     || (request.auth.uid == access().recorderUid && access().recorderEnabled == true));
+  }
+  function admin() { return member() && request.auth.uid == access().adminUid; }
+  function named(n) { return n is string && n.size() > 0 && n.size() <= 32 && n.matches('.*[^\\s].*'); }
+  function auditPath(id) { return /databases/$(database)/documents/audit/$(id); }
+  function proofPath(id) { return /databases/$(database)/documents/proofs/$(id); }
+  function leasePath(id) { return /databases/$(database)/documents/leases/$(id); }
+  function gamePath(id) { return /databases/$(database)/documents/games/$(id); }
+  function docPath(id) { return /databases/$(database)/documents/team/$(id); }
+  function freshProof(id, gameId) {
+   let p = getAfter(proofPath(id)).data;
+   return !exists(proofPath(id)) && p.gameId == gameId && p.actor == request.auth.uid
+    && p.at == request.time && named(p.name) && p.token is string && p.token.size() >= 32;
+  }
+  function audited(d, kind, id, before) {
+   let a = getAfter(auditPath(d.lastOperation)).data;
+   return !exists(auditPath(d.lastOperation)) && a.kind == kind && a.target == id
+    && a.actor == request.auth.uid && named(a.name) && a.at == request.time
+    && a.before == before && a.after == d.revision && a.payload == d.payload
+    && a.operation is string && a.operation.size() > 0 && a.operation.size() <= 64;
+  }
+  function envelope(d) {
+   return d.keys().hasOnly(['revision','payload','lastOperation','updatedAt'])
+    && d.revision is int && d.revision > 0 && d.payload is map
+    && d.lastOperation is string && d.updatedAt == request.time;
+  }
+  function gameShape(d, id) {
+   return d.id == id && d.side in ['away','home'] && d.events is list
+    && d.inning is int && d.inning >= 1 && d.inning <= 9 && d.half in ['top','bottom']
+    && d.away is map && d.home is map && d.away.roster is list && d.home.roster is list
+    && d.away.roster.size() <= 40 && d.home.roster.size() <= 40
+    && d.away.lineup is list && d.home.lineup is list
+    && d.away.lineup.size() == 9 && d.home.lineup.size() == 9
+    && d.away.lineup.toSet().size() == 9 && d.home.lineup.toSet().size() == 9
+    && d.score.away is list && d.score.home is list
+    && d.score.away.size() == 9 && d.score.home.size() == 9;
+  }
+  function documentShape(d, id) {
+   return (id == 'roster' && d.keys().hasOnly(['roster']) && d.roster is list && d.roster.size() <= 60)
+    || (id == 'schedule' && d.format == 'TR-SCHEDULE-1' && d.season is string && d.games is list && d.games.size() <= 2000);
+  }
+  function gameProof(d, id) {
+   let l = getAfter(leasePath(id)).data;
+   let p = getAfter(proofPath(d.lastOperation)).data;
+   return freshProof(d.lastOperation, id) && p.kind == 'game'
+    && getAfter(auditPath(d.lastOperation)).data.name == p.name
+    && l.proofId == d.lastOperation && l.token == p.token && l.actor == request.auth.uid;
+  }
+  match /access/team { allow get: if member(); allow list, write: if false; }
+  match /games/{id} {
+   allow read: if member();
+   allow create: if member() && envelope(request.resource.data) && request.resource.data.revision == 1
+    && gameShape(request.resource.data.payload, id) && audited(request.resource.data, 'game', id, 0)
+    && gameProof(request.resource.data, id) && !exists(leasePath(id));
+   allow update: if member() && envelope(request.resource.data)
+    && request.resource.data.revision == resource.data.revision + 1
+    && gameShape(request.resource.data.payload, id) && audited(request.resource.data, 'game', id, resource.data.revision)
+    && gameProof(request.resource.data, id)
+    && get(leasePath(id)).data.expiresAt > request.time;
+   allow delete: if false;
+  }
+  match /team/{id} {
+   allow read: if member() && id in ['roster','schedule'];
+   allow create, update: if member() && (id == 'roster' || (id == 'schedule' && admin()))
+    && envelope(request.resource.data) && documentShape(request.resource.data.payload, id)
+    && request.resource.data.revision == (exists(docPath(id)) ? resource.data.revision + 1 : 1)
+    && audited(request.resource.data, id, id, exists(docPath(id)) ? resource.data.revision : 0);
+   allow delete: if false;
+  }
+  match /audit/{id} {
+   allow read: if member();
+   allow create: if member()
+    && request.resource.data.keys().hasOnly(['kind','target','actor','name','at','before','after','operation','payload'])
+    && request.resource.data.kind in ['game','roster','schedule']
+    && (request.resource.data.kind == 'game'
+     ? getAfter(gamePath(request.resource.data.target)).data.lastOperation == id
+     : getAfter(docPath(request.resource.data.target)).data.lastOperation == id)
+    && (request.resource.data.kind == 'game'
+     ? getAfter(gamePath(request.resource.data.target)).data.updatedAt == request.time
+     : getAfter(docPath(request.resource.data.target)).data.updatedAt == request.time);
+   allow update, delete: if false;
+  }
+  // Secrets are deliberately unreadable, including to both approved client accounts.
+  // Fresh proof documents force possession of a token; patching a hidden lease
+  // without knowing its existing token cannot renew or use it.
+  match /proofs/{id} {
+   allow read, update, delete: if false;
+   allow create: if member()
+    && request.resource.data.keys().hasOnly(['kind','gameId','actor','token','name','at'])
+    && request.resource.data.kind in ['claim','release','game']
+    && freshProof(id, request.resource.data.gameId)
+    && getAfter(leasePath(request.resource.data.gameId)).data.proofId == id;
+  }
+  match /leases/{id} {
+   allow read, delete: if false;
+   allow create, update: if member() && leaseWrite(id);
+   function leaseWrite(id) {
+    let d = request.resource.data;
+    let p = getAfter(proofPath(d.proofId)).data;
+    let prior = exists(leasePath(id));
+    return d.keys().hasOnly(['token','actor','name','expiresAt','proofId'])
+     && freshProof(d.proofId, id) && d.token == p.token && d.actor == request.auth.uid && d.name == p.name
+     && existsAfter(gamePath(id))
+     && (p.kind == 'release'
+      ? (prior && resource.data.token == p.token && resource.data.actor == request.auth.uid && d.expiresAt == request.time)
+      : (d.expiresAt > request.time && d.expiresAt <= request.time + duration.value(120, 's')
+       && (!prior || (resource.data.token == p.token && resource.data.actor == request.auth.uid)
+        || (p.kind == 'claim' && resource.data.expiresAt <= request.time))))
+     && (p.kind != 'game' || ((!prior || resource.data.expiresAt > request.time)
+       && getAfter(gamePath(id)).data.lastOperation == d.proofId));
+   }
+  }
+  match /{document=**} { allow read, write: if false; }
+ }
+}
