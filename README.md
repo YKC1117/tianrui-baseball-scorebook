@@ -1,4 +1,4 @@
-# 天睿教育棒球隊｜場邊紀錄系統 v1.2.0
+# 天睿教育棒球隊｜場邊紀錄與賽程中心 v1.3.0
 
 ## 這次更新
 
@@ -28,3 +28,15 @@
 - GitHub Pages 首次開啟需要網路。**一定要先在手機飛航模式驗證離線再帶去球場。**
 - 瀏覽器清除網站資料可能使名冊與比賽全部遺失。JSON 備份不可省略。
 - 此版尚需真實比賽及 iOS/Android 裝置驗收後才可宣稱正式版。
+
+
+## v1.3.0：每季自行更新公開賽程
+
+- 開啟 `schedule.html`（網站的「球隊賽程」），隊友免登入就能查詢月份、對手、時間、球場與狀態。
+- 管理者點「賽程管理」→ 上傳賽程圖片 → 線上 OCR 辨識（Tesseract.js）→ **逐場核對／修正**，或直接手動新增場次。
+- 管理者可備份 JSON、先儲存本機草稿，最後進入獨立 `publish.html` 頁面發布。
+- 第一次發布前在 `https://github.com/settings/personal-access-tokens/new` 建立 **fine-grained PAT**，只選 `YKC1117/tianrui-baseball-scorebook`、Repository permissions 的 **Contents: Read and write**。Token 不要傳給他人；網站不會儲存 Token，發佈時需再次輸入。
+- `schedule.json` 是唯一公開賽程資料檔；每一季更新資料不需要修改 HTML／CSS／JavaScript。
+- OCR 需要網路下載辨識元件；圖片辨識結果可能出錯，**日期、對手、球場及時間必須人工核對**。
+- 公開賽程可離線瀏覽先前快取，但離線狀態無法接收最新異動；原有球員名冊與比賽成績仍保存在使用裝置，**不會因更新賽程而改變**。
+- 本版尚未取得真實球隊賽程圖片供 OCR 格式驗收，也尚未在 iPhone／iPad 實機驗證。
