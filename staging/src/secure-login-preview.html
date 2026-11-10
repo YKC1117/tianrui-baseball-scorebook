@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>天睿｜共用帳號登入測試</title>
+<style>
+:root{color-scheme:light;font-family:system-ui,-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;background:#f2f4f8;color:#172f4c}
+*{box-sizing:border-box}body{margin:0;min-height:100dvh}header{background:#102b49;color:#fff;padding:17px max(18px,calc((100% - 960px)/2))}header .brand{font-size:15px;font-weight:850;letter-spacing:.03em}.wrap{max-width:480px;margin:8vh auto 0;padding:16px}.card{background:#fff;border:1px solid #dce4ef;border-radius:22px;padding:27px;box-shadow:0 12px 35px #1331500d}h1{font-size:23px;margin:0 0 8px}p{color:#667b93;line-height:1.65;font-size:13px}label{display:block;font-size:13px;font-weight:750;margin:17px 0 7px}input{display:block;width:100%;padding:14px;border:1px solid #c7d5e2;border-radius:12px;font:inherit;font-size:16px;background:#fff}button{font:inherit;border:0;border-radius:12px;padding:13px 18px;min-height:46px;cursor:pointer;font-weight:800}button.primary{width:100%;margin-top:19px;background:#f68c2e;color:#102b49}button.secondary{background:#e6edf4;color:#24425d}button:disabled{opacity:.5;cursor:not-allowed}.notice{padding:12px;border-radius:12px;background:#f2f7fa;border:1px solid #d8e5eb;margin-top:17px;color:#3b556d;line-height:1.6;font-size:13px}.error{color:#9a2e34;background:#fff1f1;border-color:#f0c6c8}.hidden{display:none!important}.pill{display:inline-block;border-radius:999px;padding:5px 9px;background:#e8eff6;font-size:11px;color:#4d607a;font-weight:800}.record{display:flex;justify-content:space-between;border-bottom:1px solid #e4eaf0;padding:10px 0;font-size:14px}.muted{font-size:12px;color:#718398}.foot{text-align:center;margin:20px 0;font-size:11px;color:#8b98a9}
+</style>
+</head>
+<body>
+<header><div class="brand">天睿教育棒球隊 · 共用帳號</div></header>
+<main class="wrap">
+  <section class="card" id="loginView">
+    <div class="pill">受保護資料 · 測試入口</div>
+    <h1 style="margin-top:13px">登入球隊系統</h1>
+    <p>只有已建立的管理員或球隊共用帳號可以登入；不開放自行註冊。</p>
+    <form id="loginForm">
+      <label for="email">共用帳號</label><input type="email" id="email" autocomplete="username" placeholder="球隊指定登入帳號" required>
+      <label for="password">密碼</label><input type="password" id="password" autocomplete="current-password" required>
+      <button class="primary" type="submit" id="loginBtn">登入</button>
+    </form>
+    <div class="notice hidden" id="loginMsg" role="status"></div>
+  </section>
+  <section class="card hidden" id="dataView">
+    <div class="pill" id="roleLabel">已登入</div>
+    <h1 style="margin-top:13px">資料連線測試</h1>
+    <p>這個頁面只供 Codex 驗證登入與受保護資料，正式比賽仍使用原本介面。</p>
+    <label for="recorder">本次紀錄人員姓名（必填）</label>
+    <input id="recorder" maxlength="32" placeholder="請填姓名或稱呼" autocomplete="off" required>
+    <button class="primary" id="loadBtn">驗證姓名並載入共用資料</button>
+    <div class="notice" id="dataMsg" role="status">尚未載入。</div>
+    <div id="dataList" aria-live="polite"></div>
+    <button class="secondary" id="logoutBtn" style="margin-top:16px">登出</button>
+  </section>
+  <div class="foot">測試元件 · 未接管現有 v1.4.1 比賽資料</div>
+</main>
+<script type="module">
+import { TianRuiCloud } from './cloud-gateway.mjs';
+import { cloudConfig } from './cloud-config.mjs';
+const el = id => document.getElementById(id);
+let cloud;
+function message(id, text, error=false){const n=el(id); n.textContent=text;n.classList.remove('hidden');n.classList.toggle('error',error)}
+function view(logged, role=''){el('loginView').classList.toggle('hidden',logged);el('dataView').classList.toggle('hidden',!logged);el('roleLabel').textContent=role==='admin'?'管理員':role==='recorder'?'球隊共用帳號':'已登入'}
+async function init(){
+  if(cloudConfig.projectUrl.includes('YOUR-PERSONAL-PROJECT')||cloudConfig.publishableKey.includes('REPLACE_WITH')){
+    message('loginMsg','尚未設定球隊專用後端。請先由管理者建立獨立 Supabase 專案，勿使用公司專案。',true);el('loginBtn').disabled=true;return;
+  }
+  try{cloud=new TianRuiCloud(cloudConfig);if(cloud.signedIn){const role=await cloud.rpc('tr_member_role',{});view(true,role)}}
+  catch(error){cloud?.clearSession();message('loginMsg','無法驗證現有登入狀態，請重新登入。',true)}
+}
+el('loginForm').addEventListener('submit',async e=>{
+  e.preventDefault(); el('loginBtn').disabled=true;
+  try { const role=await cloud.signIn(el('email').value,el('password').value);el('password').value='';view(true,role); }
+  catch(error){message('loginMsg','登入失敗或帳號尚未取得球隊授權。',true)}
+  finally{el('loginBtn').disabled=false}
+});
+el('loadBtn').addEventListener('click',async()=>{
+  const name=el('recorder').value.trim();
+  if(!name){message('dataMsg','請先填寫紀錄人員姓名。',true);el('recorder').focus();return}
+  el('loadBtn').disabled=true;
+  try{
+    const [roster,games] = await Promise.all([cloud.getDocument('roster'),cloud.listGames()]);
+    message('dataMsg',`${name}：已連線至受保護資料。名冊：${roster?.document?.roster?.length??0} 人；比賽：${games.length} 場。`);
+    const items=el('dataList');items.replaceChildren();
+    for(const g of games.slice(0,10)){
+      const row=document.createElement('div');row.className='record';
+      const text=document.createElement('span');text.textContent=(g.state?.date||'未設定日期')+' · '+(g.state?.away?.name||'客隊')+' vs '+(g.state?.home?.name||'主隊');
+      const revision=document.createElement('span');revision.className='muted';revision.textContent='版次 '+g.revision;
+      row.append(text,revision);items.append(row);
+    }
+  } catch(error){message('dataMsg',error.code==='OFFLINE'?'網路中斷，目前無法同步。':'讀取失敗：'+error.message,true)}
+  finally{el('loadBtn').disabled=false}
+});
+el('logoutBtn').addEventListener('click',async()=>{try{await cloud.signOut()}catch{}view(false);el('password').value='';el('recorder').value='';el('dataList').replaceChildren()});
+init();
+</script>
+</body>
+</html>
