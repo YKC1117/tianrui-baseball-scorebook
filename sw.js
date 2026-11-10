@@ -1,5 +1,5 @@
 'use strict';
-const VERSION='tianrui-baseball-v1.3.1';
+const VERSION='tianrui-baseball-v1.4.0';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./logo-tianrui.png','./schedule.html','./schedule.json','./publish.html'];
 self.addEventListener('install',event=>{
   event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting()));
