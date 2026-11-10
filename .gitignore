@@ -1,0 +1,10 @@
+node_modules/
+test-results/
+playwright-report/
+.env
+.env.*
+!.env.example
+src/cloud-config.mjs
+staging/src/cloud-config.mjs
+work/
+*.backup.json
