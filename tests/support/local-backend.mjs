@@ -12,7 +12,7 @@ export async function startLocalBackend(){
  const name=`tr-local-${randomBytes(5).toString('hex')}`,db=`${name}-db`,auth=`${name}-auth`,rest=`${name}-rest`,secret=randomBytes(48).toString('hex');
  const containers=[];
  const sql=text=>docker('exec',db,'psql','-U','postgres','-d','postgres','-v','ON_ERROR_STOP=1','-At','-c',text);
- const stop=()=>{for(const id of [...containers].reverse())try{docker('rm','-f',id);}catch{}try{docker('network','rm',name);}catch{}};
+ const stop=()=>{for(const id of [...containers].reverse())try{docker('rm','-f','-v',id);}catch{}try{docker('network','rm',name);}catch{}};
  const token=claims=>{const enc=x=>Buffer.from(JSON.stringify(x)).toString('base64url');const head=enc({alg:'HS256',typ:'JWT'}),body=enc({iss:'supabase',iat:Math.floor(Date.now()/1000),exp:Math.floor(Date.now()/1000)+3600,...claims});return `${head}.${body}.${createHmac('sha256',secret).update(`${head}.${body}`).digest('base64url')}`;};
  const wait=async(fn)=>{for(let i=0;i<200;i++){try{if(await fn())return;}catch{}await new Promise(r=>setTimeout(r,100));}throw Error('Local backend readiness timed out');};
  try{
@@ -54,6 +54,7 @@ export async function startLocalBackend(){
     return sql(counts)===docker('exec',db,'psql','-U','postgres','-d','tr_restore_test','-At','-c',counts);
    },anonToken:token({role:'anon'}),
    async bridge(context){
+    await context.route('**/src/firebase-gateway.mjs',r=>r.fulfill({contentType:'text/javascript',body:"export {TianRuiCloud} from './cloud-gateway.mjs';"}));
     await context.route('**/src/config.mjs',r=>r.fulfill({contentType:'text/javascript',body:"export const cloudConfig={projectUrl:'https://local-fixture.supabase.co',publishableKey:'sb_publishable_local_fixture'};"}));
     await context.route('https://local-fixture.supabase.co/**',async route=>{
      if(route.request().method()==='OPTIONS')return route.fulfill({status:204,headers:{'access-control-allow-origin':'*','access-control-allow-headers':'*','access-control-allow-methods':'GET,POST,OPTIONS'}});

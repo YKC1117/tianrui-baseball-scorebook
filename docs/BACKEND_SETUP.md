@@ -1,3 +1,5 @@
+> 本文件保留 Supabase `79d5223` 工程供回復。Firebase Spark 候選版請改讀 [FIREBASE_REVIEW.md](FIREBASE_REVIEW.md) 與 [FIREBASE_OWNER_STEPS.md](FIREBASE_OWNER_STEPS.md)。
+
 # 天睿 v1.5 後端設定與驗收
 
 本文件不含正式連線資訊。`src/config.mjs` 保持 `null`，因此目前不會假登入或假同步。不得套用到其他公司的 Supabase 專案。

@@ -274,7 +274,7 @@ return {
   destroy:()=>eventController.abort(),
   getState:()=>deep(db),
   settled:()=>saving,
-  replace(value){db=deep(value);if(!db.draft)db.draft=blankDraft();draftSync();currentRecorder=null;undoStack=[];futureStack=[];modal=null;render();},
+  replace(value,{preserveRecorder=false}={}){const recorder=currentRecorder;db=deep(value);if(!db.draft)db.draft=blankDraft();draftSync();currentRecorder=preserveRecorder&&recorder?.gameId===db.activeId?recorder:null;undoStack=[];futureStack=[];modal=null;render();},
   refresh:()=>render()
 };
 }

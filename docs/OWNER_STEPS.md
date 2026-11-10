@@ -1,3 +1,5 @@
+> 本文件保留 Supabase `79d5223` 工程供回復。Firebase Spark 候選版請改讀 [FIREBASE_REVIEW.md](FIREBASE_REVIEW.md) 與 [FIREBASE_OWNER_STEPS.md](FIREBASE_OWNER_STEPS.md)。
+
 # 擁有者需要親自完成的最少步驟
 
 目前未找到已授權且明確屬於天睿的獨立後端。程式與本機服務驗證均可繼續執行，正式連線設定保持 `null`。

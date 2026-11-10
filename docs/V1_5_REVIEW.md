@@ -1,3 +1,5 @@
+> 本文件保留 Supabase `79d5223` 工程供回復。Firebase Spark 候選版請改讀 [FIREBASE_REVIEW.md](FIREBASE_REVIEW.md) 與 [FIREBASE_OWNER_STEPS.md](FIREBASE_OWNER_STEPS.md)。
+
 # 天睿棒球紀錄系統 v1.5｜第二階段施工與測試報告
 
 日期：2026-11-10（台灣時間）

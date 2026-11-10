@@ -1,7 +1,7 @@
 'use strict';
-const VERSION='tianrui-baseball-v1.5-review-2';
+const VERSION='tianrui-baseball-v1.5-firebase-1';
 const FILES=['./','./index.html','./schedule.html','./publish.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./logo-tianrui.png',
- './src/app.mjs','./src/config.mjs','./src/cloud-gateway.mjs','./src/workspace-store.mjs','./src/sync-store.mjs','./src/validation.mjs','./src/scorebook.mjs','./src/schedule.mjs'];
+ './src/app.mjs','./src/backup-integrity.mjs','./src/config.mjs','./src/cloud-gateway.mjs','./src/firebase-gateway.mjs','./src/vendor/firebase.mjs','./src/workspace-store.mjs','./src/sync-store.mjs','./src/validation.mjs','./src/scorebook.mjs','./src/schedule.mjs'];
 const ALLOWED=new Set(FILES.map(path=>new URL(path,self.location.href).href));
 self.addEventListener('install',event=>event.waitUntil(caches.open(VERSION).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('tianrui-baseball-')&&k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));

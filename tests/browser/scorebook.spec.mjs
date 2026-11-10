@@ -2,6 +2,7 @@ import {test,expect} from '@playwright/test';
 const id='00000000-0000-4000-8000-000000000002';
 const roster=Array.from({length:20},(_,i)=>({id:'p'+i,name:'測試球員'+i,num:i<2?'':String(i+1)}));
 async function mockCloud(context,{role='recorder',backend:shared}={}){
+ await context.route('**/src/firebase-gateway.mjs',r=>r.fulfill({contentType:'text/javascript',body:"export {TianRuiCloud} from './cloud-gateway.mjs';"}));
  const backend=shared||{games:new Map(),docs:new Map([['roster',{doc_key:'roster',revision:1,document:{roster}}],['schedule',{doc_key:'schedule',revision:1,document:{format:'TR-SCHEDULE-1',season:'測試賽程',games:[]}}]]),ops:new Map(),leases:new Map(),writes:[],loseReply:false};
  await context.route('**/src/config.mjs',route=>route.fulfill({contentType:'text/javascript',body:"export const cloudConfig={projectUrl:'https://fixture.supabase.co',publishableKey:'sb_publishable_fixture'};"}));
  await context.route('https://fixture.supabase.co/**',async route=>{
@@ -76,7 +77,7 @@ test('offline queue survives reload and replays once after reconnect',async({pag
  // UI module responses are fulfilled from disk in this fixture to isolate the
  // durable queue; actual service-worker offline shell has a separate test.
  await context.route('http://127.0.0.1:4173/**',async route=>{
-  const {readFile}=await import('node:fs/promises');const {resolve}=await import('node:path');const path=new URL(route.request().url()).pathname;if(path==='/src/config.mjs')return route.fallback();
+  const {readFile}=await import('node:fs/promises');const {resolve}=await import('node:path');const path=new URL(route.request().url()).pathname;if(['/src/config.mjs','/src/firebase-gateway.mjs'].includes(path))return route.fallback();
   try{return route.fulfill({body:await readFile(resolve(process.cwd(),path==='/'?'index.html':'.'+path)),contentType:path.endsWith('.mjs')?'text/javascript':path.endsWith('.png')?'image/png':'text/html'});}catch{return route.abort();}
  });
  await page.reload();await expect(page.locator('#syncStatus')).toContainText('待同步 1 筆');

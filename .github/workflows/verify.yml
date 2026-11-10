@@ -2,7 +2,7 @@ name: v1.5 checks
 on:
   pull_request:
   push:
-    branches: [work/secure-sharing-v15]
+    branches: [work/secure-sharing-v15, work/firebase-spark-v15]
 permissions:
   contents: read
 jobs:
@@ -17,8 +17,16 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci --ignore-scripts
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm run build:firebase
+      - name: Verify committed browser SDK matches pinned dependencies
+        run: git diff --exit-code -- src/vendor
       - run: node scripts/build-upgrade.mjs --check
       - run: npm test
+      - run: npm run test:firebase
       - name: Start isolated test database
         run: |
           docker run --name tr-v15-postgres -e POSTGRES_HOST_AUTH_METHOD=trust -d postgres:17-alpine
@@ -31,3 +39,4 @@ jobs:
       - run: npm run test:local
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:browser
+      - run: npm run test:firebase:browser

@@ -1,13 +1,14 @@
 import {cloudConfig} from './config.mjs';
-import {TianRuiCloud} from './cloud-gateway.mjs';
+import {TianRuiCloud} from './firebase-gateway.mjs';
 import {WorkspaceStore} from './workspace-store.mjs';
 import {SyncStore} from './sync-store.mjs';
 import {mountScorebook} from './scorebook.mjs';
 import {mountSchedule} from './schedule.mjs';
 import {parseBackup,validateGame,validateRoster} from './validation.mjs';
+import {decodeArchive} from './backup-integrity.mjs';
 const el=id=>document.getElementById(id);
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let cloud,engine,ui,documentRecorder='',role,releaseLock,activeLockKey;
+let cloud,engine,ui,documentRecorder='',role,releaseLock,activeLockKey,syncBusy=false;
 function download(data,name) {
  const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
  const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
@@ -28,7 +29,7 @@ async function askName() {
  if(name===null)return null;cloud._assertRecorder(name);return name.trim();
 }
 function backup(){const value=JSON.parse(engine.backup());if(ui?.getState)value.unsavedUi=ui.getState();return JSON.stringify(value,null,2);}
-function panel(){return `<section class="notice blue" aria-label="同步狀態"><div class="row between"><span id="syncStatus" role="status"></span><div class="row"><button class="btn small" id="syncNow">重新同步／讀取</button><button class="btn small" id="releaseRecording">交出紀錄權</button><button class="btn small" id="allBackup">完整備份</button><button class="btn small" id="importLegacy">匯入舊版／還原備份</button><button class="btn small" id="logout">登出</button></div></div><div id="conflictActions"></div></section>`;}
+function panel(){return `<section class="notice blue" aria-label="同步狀態"><div class="row between"><span id="syncStatus" role="status"></span><div class="row"><button class="btn small" id="syncNow">重新同步／讀取</button><button class="btn small" id="releaseRecording">交出紀錄權</button><button class="btn small" id="allBackup">完整備份</button>${role==='admin'?'<button class="btn small" id="cloudBackup">雲端稽核備份</button>':''}<button class="btn small" id="importLegacy">匯入舊版／還原備份</button><button class="btn small" id="logout">登出</button></div></div><div id="conflictActions"></div></section>`;}
 function updateStatus(){
  if(el('syncStatus'))el('syncStatus').textContent=`${role==='admin'?'管理員':'共用紀錄帳號'} · ${engine.status} · 待同步 ${engine.pendingCount} 筆 · 最後成功：${engine.workspace.lastSuccess?new Date(engine.workspace.lastSuccess).toLocaleString('zh-TW'):'尚無'}`;
  if(el('conflictActions')){
@@ -108,7 +109,13 @@ document.addEventListener('click',async event=>{
  if(!engine||!ui)return;
  try {
   if(id==='allBackup'){await ui.settled();download(backup(),'tianrui-workspace-backup.json');}
-  if(id==='syncNow'){await ui.settled();await engine.flush();ui.replace(await engine.pull());updateStatus();}
+  if(id==='cloudBackup'){await ui.settled();await engine.flush();download(await cloud.exportBackup(),'tianrui-cloud-audit-backup.json');}
+  if(id==='syncNow'){
+   if(syncBusy)return;
+   syncBusy=true;el('app').inert=true;el('app').setAttribute('aria-busy','true');
+   try{await ui.settled();await engine.flush();ui.replace(await engine.pull(),{preserveRecorder:true});}
+   finally{syncBusy=false;el('app').inert=false;el('app').setAttribute('aria-busy','false');updateStatus();}
+  }
   if(id==='releaseRecording'){await ui.settled();await engine.flush();if(engine.pendingCount)throw Error('仍有未同步操作，請先備份並處理同步，尚未交出紀錄權。');await engine.releaseEditors();ui.replace(engine.db);engine.status='紀錄權已交出；再次紀錄需重新填寫姓名';updateStatus();}
   if(id==='logout'){
    await ui.settled();documentRecorder='';
@@ -123,7 +130,7 @@ async function importWorkspace(){
  const input=document.createElement('input');input.type='file';input.accept='.json';
  input.onchange=async()=>{try{
   const file=input.files?.[0];if(!file)return;
-  const restored=parseBackup(await file.text());
+  const restored=parseBackup(await decodeArchive(await file.text()));
   const name=await askName();if(!name)return;
   if(!confirm('已下載匯入前備份。比賽會以新 ID 新增，不覆蓋雲端既有比賽；名冊只在雲端與待同步名冊均為空時匯入。繼續？'))return;
   const db=engine.db;
@@ -146,6 +153,6 @@ new MutationObserver(()=>{if(engine&&el('syncStatus')&&!el('syncStatus').textCon
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
 if(!cloudConfig)gate('天睿專用後端尚未設定；目前無法登入或同步。舊版本機資料完整保留，可先下載備份。');
 else {
- try{cloud=new TianRuiCloud(cloudConfig);if(cloud.signedIn)await start();else gate();}
+ try{cloud=new TianRuiCloud(cloudConfig);await cloud.ready;if(cloud.signedIn)await start();else gate();}
  catch(error){gate(error.message);}
 }

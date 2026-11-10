@@ -1,5 +1,6 @@
 node_modules/
 test-results/
+test-results-firebase/
 playwright-report/
 .env
 .env.*
@@ -8,3 +9,7 @@ src/cloud-config.mjs
 staging/src/cloud-config.mjs
 work/
 *.backup.json
+
+# Emulator diagnostics can contain test payloads. Never publish runtime logs.
+*-debug.log
+.firebase/
