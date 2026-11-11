@@ -34,6 +34,7 @@ export function validateQuickEntry(game,type,entry){
   if(/^[123]$/.test(move.dest)){if(used.has(move.dest))throw Error('同一壘包不能同時站兩位球員');used.add(move.dest);if(key!=='bat'&&Number(move.dest)<Number(key.slice(1))+1)throw Error('跑者不能往回退壘');}
  }
  if(game.outs+outs>3)throw Error('出局數超過三個，請核對跑者結果');
+ if(['1B','2B','3B'].includes(type)&&entry.thirdOutRule==='force')throw Error('封殺或打者未到一壘不能記為安打，請改記野手選擇或實際出局結果');
  if(type==='DP'&&outs!==2)throw Error('雙殺必須記錄兩位球員出局');
  if(['SO','GO','FO','SF','SH'].includes(type)&&map.bat.dest!=='O')throw Error('這個出局結果的打者必須出局；特殊情況請切換詳細模式');
  if(type==='HR'&&Object.values(map).some(m=>m.dest!=='H'))throw Error('全壘打的所有球員應回本壘；爭議情況請用詳細模式');
@@ -46,6 +47,8 @@ export function validateQuickEntry(game,type,entry){
  if(['SF','SH'].includes(type)&&game.outs>=2)throw Error('兩出局不能記為犧牲打');
  if(type==='SF'&&(map.bat.dest!=='O'||scored===0))throw Error('高飛犧牲打必須有合法得分；未得分請改選飛球出局');
  const rbi=cancelledRuns||scored===0||type==='DP'?0:entry.rbi;
+ if(type==='SF'&&rbi<1)throw Error('高飛犧牲打必須有打點；若因失誤或額外跑壘得分請改選飛球出局');
+ if(type==='SH'&&!Object.entries(map).some(([key,move])=>key!=='bat'&&!['O','N'].includes(move.dest)&&move.dest!==String(Number(key.slice(1))+1)))throw Error('沒有跑者因短打推進，請改選一般出局');
  if(!Number.isInteger(rbi)||rbi<0||rbi>scored)throw Error('請確認本打席打點（0 到實際得分人數）');
  if(type==='FO'&&scored>0&&rbi>0&&game.outs<2)throw Error('飛球接殺帶有打點，請改選高飛犧牲打；若因失誤或額外跑壘得分，打點應為 0');
  if(['BB','IBB','HBP'].includes(type)){const forced=forcedWalk(game.bases);if(expected.some(key=>map[key].dest!==forced[key].dest))throw Error('保送僅自動處理被迫進壘，額外推進請另外記錄');if(rbi!==Object.values(forced).filter(m=>m.dest==='H').length)throw Error('強迫得分的保送必須計入打點');}
