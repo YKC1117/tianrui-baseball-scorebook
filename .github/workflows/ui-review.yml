@@ -20,7 +20,8 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: npm test
       - name: Use HTTPS Ubuntu packages for browser dependencies
-        run: sudo sed -i 's|^URIs:.*|URIs: https://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
+        run: |
+          sudo sed -i 's|^URIs:.*|URIs: https://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
       - run: npx playwright install --with-deps chromium webkit
       - run: npm run test:ui
       - name: Verify the delivered preview matches its sources
