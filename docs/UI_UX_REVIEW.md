@@ -85,3 +85,5 @@ python3 -m http.server 4180 --bind 127.0.0.1 --directory dist-ui
 新增 Node 資料相容、分場隔離、增廣匹配／兼任衝突與建議保護測試。新增瀏覽器案例涵蓋舊名單匯入、多選增修及重開／匯出／匯入、A/B 草稿與重複開賽防護、缺口即時更新、未知資格上場、建議預覽、改期／取消、未儲存名單、分場備份還原、320／390 px 放大字體勾選，以及儲存失敗救援。
 
 本輪最終結果及 SHA、CI、更新後試用網址會同步記錄於 PR #3；後端與 iPhone／iPad 真機仍不在本輪驗收範圍。
+
+CI 環境補強：GitHub Ubuntu Runner 預設的 HTTP Azure 套件鏡像反覆逾時，導致 Playwright 依賴安裝停留；UI workflow 改用 Ubuntu 官方 HTTPS 套件來源，沿用簽章金鑰及 TLS 驗證。這只調整暫時性的 UI 測試 Runner，不更動網站或後端設定。
