@@ -100,6 +100,7 @@ async function recorderConfirm(){
     tab=action.tab;
   }
   const match=g();if(!match){render();return;}
+  scoreNotice=null;lastPlateAt=-Infinity;lastScoreTap=null;
   currentRecorder=null;
   const remote=await onRecorder(match.id,name,action.type==='new');
   if(remote){db.games[db.games.findIndex(x=>x.id===match.id)]=deep(remote);}
@@ -374,7 +375,7 @@ return {
   destroy:()=>eventController.abort(),
   getState:()=>deep(db),
   settled:()=>saving,
-  replace(value,{preserveRecorder=false}={}){const recorder=currentRecorder;db=planning.normalizePlanningState(value);if(!db.draft)db.draft=blankDraft();draftSync();currentRecorder=preserveRecorder&&recorder?.gameId===db.activeId?recorder:null;undoStack=[];futureStack=[];modal=null;render();},
+  replace(value,{preserveRecorder=false}={}){const recorder=currentRecorder;stopFavoriteDrag();db=planning.normalizePlanningState(value);db.settings??={scale:1};db.settings.quickScoring=quick.normalizeConfig(db.settings.quickScoring);scoreNotice=null;quickSheet=null;favoritesDraft=null;advancedEventId=null;lastPlateAt=-Infinity;lastScoreTap=null;saveError='';if(!db.draft)db.draft=blankDraft();draftSync();currentRecorder=preserveRecorder&&recorder?.gameId===db.activeId?recorder:null;undoStack=[];futureStack=[];modal=null;render();},
   refresh:()=>render()
 };
 }
