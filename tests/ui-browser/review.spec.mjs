@@ -69,10 +69,16 @@ test('preview reset and backup restore preserve all existing site data byte-for-
  await page.locator('#demoOptions').click();const download=page.waitForEvent('download');await page.locator('#exportPreview').click();const data=await readFile(await(await download).path());const archive=JSON.parse(data);expect(archive.workspace.db.games).toHaveLength(2);
  await page.locator('#resetPreview').click();await expect(page.locator('#previewSettings')).not.toBeVisible();await page.locator('#demoOptions').click();await page.locator('#previewImport').setInputFiles({name:'synthetic-workspace.json',mimeType:'application/json',buffer:data});await expect(page.locator('#previewSettings')).not.toBeVisible();expect((await state(page)).games.find(g=>g.id==='demo_live').balls).toBe(before.games.find(g=>g.id==='demo_live').balls);
  expect(await page.evaluate(()=>localStorage.getItem('TR_BASEBALL_OFFLINE_V1'))).toBe(legacy);expect(await page.evaluate(()=>localStorage.getItem('TR-SCHEDULE-PUBLIC-1'))).toBe('schedule-sentinel');
+ const checkpoint=await page.evaluate(key=>localStorage.getItem(key),KEY);
+ await page.evaluate(key=>{const original=Storage.prototype.setItem;Storage.prototype.setItem=function(k,v){if(k===key)throw new DOMException('Synthetic quota failure','QuotaExceededError');return original.call(this,k,v);};},KEY);
+ await begin(page);await page.locator('[data-pitch="B"]').click();await expect(page.locator('#demoSaveStatus')).toBeVisible();await expect(page.locator('#demoSaveStatus')).toContainText('無法保存');
+ expect(await page.evaluate(key=>localStorage.getItem(key),KEY)).toBe(checkpoint);
+ await page.locator('#demoOptions').click();const rescue=page.waitForEvent('download');await page.locator('#exportPreview').click();const rescued=JSON.parse(await readFile(await(await rescue).path(),'utf8'));expect(rescued.workspace.db.games.find(g=>g.id==='demo_live').balls).toBe(before.games.find(g=>g.id==='demo_live').balls+1);
 });
 test('single-file preview is self-contained and opens without any web service',async({page})=>{
  await page.goto('http://127.0.0.1:4180/tianrui-ui-preview.html');await expect(page.getByRole('heading',{name:/每一場，.*都好好記錄/gi})).toBeVisible();await begin(page);await page.locator('[data-pitch="B"]').click();await settle(page);expect((await game(page)).balls).toBe(2);
  const source=await readFile('dist-ui/tianrui-ui-preview.html','utf8');expect(source).not.toContain('src="./app.js"');expect(source).not.toContain('href="../src/');expect(source).toContain('data:image/png;base64,');
+ await page.locator('#demoOptions').click();const downloaded=page.waitForEvent('download');await page.locator('#downloadPreviewHTML').click();const delivered=await readFile(await(await downloaded).path(),'utf8');expect(delivered).toBe(source);
 });
 test('name dialog supports keyboard focus, escape and mandatory names without creating changes',async({page})=>{
  await nav(page,'record');const dialog=page.getByRole('dialog',{name:'填寫紀錄員姓名'});await expect(dialog).toBeVisible();
