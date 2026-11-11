@@ -38,7 +38,7 @@ test('roster edits, blank numbers, search, support player and three-step lineup 
  expect((await game(page)).away.roster.some(p=>p.guest)).toBe(true);expect((await state(page)).clubRoster).toHaveLength(21);expect((await game(page)).events.at(-1).recorder).toBe('新場紀錄員');
 });
 test('actual scoring, running, fielding, undo and pitcher re-entry keep statistics intact',async({page})=>{
- await begin(page);const initial=await game(page);
+ await begin(page);await page.locator('#recordMode').selectOption('detail');const initial=await game(page);
  await page.locator('[data-pitch="B"]').click();await settle(page);expect((await game(page)).balls).toBe(initial.balls+1);
  await page.locator('[data-result="1B"]').click();await page.locator('[data-commitplay="1B"]').click();await settle(page);const hitter=(await game(page)).bases[0].pid;
  await page.locator('[data-run="SB"]').click();await page.locator('[data-commitrun="SB"]').click();await settle(page);expect((await game(page)).bases[1].pid).toBe(hitter);expect((await game(page)).away.stats[hitter].SB).toBe(1);

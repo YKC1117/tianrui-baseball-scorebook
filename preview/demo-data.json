@@ -1632,7 +1632,27 @@
           "message": "#01 示範球員 01｜一壘安打",
           "desc": "0 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "1B",
+            "batterId": "demo_p01",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_esbbdfh4mw74kv40",
+            "pitchSessionId": "id_bfzum8u7mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "1",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 0,
+            "runCredits": []
+          }
         },
         {
           "id": "id_2l6z65n0mw74kv40",
@@ -1643,7 +1663,45 @@
           "message": "#02 示範球員 02｜全壘打",
           "desc": "0 出局、2 分、RBI 2 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "HR",
+            "batterId": "demo_p02",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_esbbdfh4mw74kv40",
+            "pitchSessionId": "id_bfzum8u7mw74kv40",
+            "map": {
+              "r0": {
+                "dest": "H",
+                "er": "yes"
+              },
+              "bat": {
+                "dest": "H",
+                "er": "yes"
+              }
+            },
+            "rbi": 2,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 2,
+            "outs": 0,
+            "runCredits": [
+              {
+                "pid": "demo_p01",
+                "charge": "id_esbbdfh4mw74kv40",
+                "chargeSession": "id_bfzum8u7mw74kv40",
+                "by": "bat",
+                "er": "yes"
+              },
+              {
+                "pid": "demo_p02",
+                "charge": "id_esbbdfh4mw74kv40",
+                "chargeSession": "id_bfzum8u7mw74kv40",
+                "er": "yes"
+              }
+            ]
+          }
         },
         {
           "id": "id_kkabi0m4mw74kv40",
@@ -3345,7 +3403,27 @@
           "message": "#01 示範球員 01｜一壘安打",
           "desc": "0 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "1B",
+            "batterId": "demo_p01",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "1",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 0,
+            "runCredits": []
+          }
         },
         {
           "id": "id_6p3b6ugnmw74kv40",
@@ -3356,7 +3434,45 @@
           "message": "#02 示範球員 02｜全壘打",
           "desc": "0 出局、2 分、RBI 2 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "HR",
+            "batterId": "demo_p02",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "r0": {
+                "dest": "H",
+                "er": "yes"
+              },
+              "bat": {
+                "dest": "H",
+                "er": "yes"
+              }
+            },
+            "rbi": 2,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 2,
+            "outs": 0,
+            "runCredits": [
+              {
+                "pid": "demo_p01",
+                "charge": "id_4ua66r2rmw74kv40",
+                "chargeSession": "id_iou6z999mw74kv40",
+                "by": "bat",
+                "er": "yes"
+              },
+              {
+                "pid": "demo_p02",
+                "charge": "id_4ua66r2rmw74kv40",
+                "chargeSession": "id_iou6z999mw74kv40",
+                "er": "yes"
+              }
+            ]
+          }
         },
         {
           "id": "id_kgpjx40emw74kv40",
@@ -3367,7 +3483,27 @@
           "message": "#03 示範球員 03｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p03",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_x5ux40bymw74kv40",
@@ -3378,7 +3514,27 @@
           "message": "#04 示範球員 04｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p04",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_ea8fs894mw74kv40",
@@ -3389,7 +3545,27 @@
           "message": "#05 示範球員 05｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p05",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_s1l82n9qmw74kv40",
@@ -3411,7 +3587,34 @@
           "message": "#01 對手球員 01｜全壘打",
           "desc": "0 出局、1 分、RBI 1 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "HR",
+            "batterId": "id_4ua66r2rmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_7wcrthvymw74kv40",
+            "map": {
+              "bat": {
+                "dest": "H",
+                "er": "yes"
+              }
+            },
+            "rbi": 1,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 1,
+            "outs": 0,
+            "runCredits": [
+              {
+                "pid": "id_4ua66r2rmw74kv40",
+                "charge": "demo_p01",
+                "chargeSession": "id_7wcrthvymw74kv40",
+                "er": "yes"
+              }
+            ]
+          }
         },
         {
           "id": "id_hg2hdgqfmw74kv40",
@@ -3422,7 +3625,27 @@
           "message": "#02 對手球員 02｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_5qv1okcwmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_7wcrthvymw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_0z1fzibimw74kv40",
@@ -3433,7 +3656,27 @@
           "message": "#03 對手球員 03｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_o0iqqeu9mw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_7wcrthvymw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_ev6ri61rmw74kv40",
@@ -3444,7 +3687,27 @@
           "message": "#04 對手球員 04｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_f27182oxmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_7wcrthvymw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_iev2nsrimw74kv40",
@@ -3466,7 +3729,34 @@
           "message": "#06 示範球員 06｜全壘打",
           "desc": "0 出局、1 分、RBI 1 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "HR",
+            "batterId": "demo_p06",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "H",
+                "er": "yes"
+              }
+            },
+            "rbi": 1,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 1,
+            "outs": 0,
+            "runCredits": [
+              {
+                "pid": "demo_p06",
+                "charge": "id_4ua66r2rmw74kv40",
+                "chargeSession": "id_iou6z999mw74kv40",
+                "er": "yes"
+              }
+            ]
+          }
         },
         {
           "id": "id_fkq7t4a3mw74kv40",
@@ -3477,7 +3767,27 @@
           "message": "#07 示範球員 07｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p07",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_q7nuy19pmw74kv40",
@@ -3488,7 +3798,27 @@
           "message": "#08 示範球員 08｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p08",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_rg4bb9ygmw74kv40",
@@ -3499,7 +3829,27 @@
           "message": "#09 示範球員 09｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p09",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_aq5sq19gmw74kv40",
@@ -3521,7 +3871,27 @@
           "message": "#05 對手球員 05｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_dxwsg6ccmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p02",
+            "pitchSessionId": "id_vkszzmt0mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_3g3oivflmw74kv40",
@@ -3532,7 +3902,27 @@
           "message": "#06 對手球員 06｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_yni43a6wmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p02",
+            "pitchSessionId": "id_vkszzmt0mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_eimr0x2lmw74kv40",
@@ -3543,7 +3933,27 @@
           "message": "#07 對手球員 07｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_2pk18wk2mw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p02",
+            "pitchSessionId": "id_vkszzmt0mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_ojfdqeevmw74kv40",
@@ -3565,7 +3975,27 @@
           "message": "#01 示範球員 01｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p01",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_dnki4ac2mw74kv40",
@@ -3576,7 +4006,27 @@
           "message": "#02 示範球員 02｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p02",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_up7bmu3nmw74kv40",
@@ -3587,7 +4037,27 @@
           "message": "#03 示範球員 03｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "demo_p03",
+            "atkKey": "away",
+            "defKey": "home",
+            "pitcher": "id_4ua66r2rmw74kv40",
+            "pitchSessionId": "id_iou6z999mw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_ohwo8q8jmw74kv40",
@@ -3609,7 +4079,27 @@
           "message": "#08 對手球員 08｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_5ceo9hj0mw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_wcxzcgtzmw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_b9k9s5pqmw74kv40",
@@ -3620,7 +4110,27 @@
           "message": "#09 對手球員 09｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_7mq09alhmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_wcxzcgtzmw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_hn3690rqmw74kv40",
@@ -3631,7 +4141,27 @@
           "message": "#01 對手球員 01｜三振",
           "desc": "1 出局、0 分、RBI 0 · 示範紀錄",
           "recorder": "示範紀錄員",
-          "recorderSessionId": null
+          "recorderSessionId": null,
+          "play": {
+            "type": "SO",
+            "batterId": "id_4ua66r2rmw74kv40",
+            "atkKey": "home",
+            "defKey": "away",
+            "pitcher": "demo_p01",
+            "pitchSessionId": "id_wcxzcgtzmw74kv40",
+            "map": {
+              "bat": {
+                "dest": "O",
+                "er": "yes"
+              }
+            },
+            "rbi": 0,
+            "code": "",
+            "note": "示範紀錄",
+            "runs": 0,
+            "outs": 1,
+            "runCredits": []
+          }
         },
         {
           "id": "id_1yncg3grmw74kv40",

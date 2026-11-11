@@ -1,3 +1,4 @@
+import {normalizeConfig} from './quick-scoring.mjs';
 import {normalizePositions,normalizePlanningState} from './lineup-planning.mjs';
 const idPattern=/^[a-zA-Z0-9_-]{1,128}$/;
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
@@ -41,6 +42,7 @@ export function parseBackup(raw) {
  validateRoster(db.clubRoster||[]);db.games.forEach(validateGame);
  if(db.schedule)validateSchedule(db.schedule);
  if(db.draft?.guests)validateRoster(db.draft.guests,20,false);
+ if(db.settings?.quickScoring)normalizeConfig(db.settings.quickScoring);
  if(db.logo&&!/^data:image\/png;base64,[a-zA-Z0-9+/=]+$/.test(db.logo))throw Error('備份 Logo 格式不正確');
  return normalizePlanningState(db);
 }

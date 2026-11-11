@@ -21,7 +21,7 @@ document.addEventListener('click',async event=>{
   if(!confirm('要回到最初的模擬名單與示範比賽嗎？只會重設這個試用版；其他網站資料不受影響。'))return;
   await ui.settled();const initial=normalizePlanningState(demo);try{localStorage.setItem(KEY,JSON.stringify(initial));db=initial;storageAvailable=true;document.getElementById('previewSettings').close();ui.replace(db);status('已重設模擬資料');}catch{status('無法保存重設結果，原有試用進度仍保留；請先下載備份。',true);}
  }else if(id==='downloadPreviewHTML'){
-  try{const response=await fetch(new URL('./tianrui-ui-preview.html',document.baseURI));if(!response.ok)throw Error('下載未完成');download(await response.text(),'天睿_UIUX_離線試用版.html','text/html');}catch{alert('目前無法下載，請恢復連線後再試。已下載的 HTML 可直接用桌面瀏覽器開啟。');}
+  try{const source=new URL('./tianrui-ui-preview.html',document.baseURI);source.search=new URL(document.baseURI).search;const response=await fetch(source,{cache:'no-store'});if(!response.ok)throw Error('下載未完成');download(await response.text(),'天睿_UIUX_離線試用版.html','text/html');}catch{alert('目前無法下載，請恢復連線後再試。已下載的 HTML 可直接用桌面瀏覽器開啟。');}
  }else if(id==='exportPreview'){
   await ui.settled();download(JSON.stringify({format:'TR-SECURE-BACKUP-15',exportedAt:new Date().toISOString(),workspace:{db:ui.getState()}},null,2),'天睿_UI試用_完整備份.json');
  }else if(id==='importPreview')document.getElementById('previewImport').click();

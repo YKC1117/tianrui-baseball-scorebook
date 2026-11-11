@@ -1,15 +1,16 @@
+import * as quick from '../src/quick-scoring.mjs';
 import * as planning from '../src/lineup-planning.mjs';
 import {readFileSync} from 'node:fs';
 // Generate every sample score with the retained scoring engine, not mock totals.
 export function createDemoData(){
- let source=readFileSync('src/scorebook.mjs','utf8').replace(/^import .*lineup-planning.*;\n/m,'').replace('export function mountScorebook','function mountScorebook');
+ let source=readFileSync('src/scorebook.mjs','utf8').replace(/^import .*;\n/gm,'').replace('export function mountScorebook','function mountScorebook');
  source=source.slice(0,source.indexOf('attachEvents();render();'))+`return {freshGame,newPitchSession,commitPlay,runPitch,finish,defaultMoves,blankBat,blankPitch,setGame(x){db.games=[x];db.activeId=x.id;currentRecorder={gameId:x.id,name:'示範紀錄員'};}};}`;
  source=source.replace('function render(){','function render(){return;');
  let moves=[],seed=123456;const randomMath=Object.create(Math);randomMath.random=()=>((seed=(seed*16807)%2147483647)-1)/2147483646;
  class FixedDate extends Date{constructor(...args){super(...(args.length?args:['2026-11-08T01:00:00Z']));}static now(){return 1794099600000;}}
  const fields={rbi:{value:'0'},playCode:{value:''},playNote:{value:'示範紀錄'},runNote:{value:''}};
  const document={addEventListener(){},getElementById:id=>fields[id]||null,querySelectorAll:()=>moves.map(([key,dest])=>({getAttribute:()=>key,value:dest})),querySelector:()=>({value:'yes'})};
- const factory=new Function('planning','document','window','confirm','structuredClone','Math','Date',source+';return mountScorebook;')(planning,document,{alert:m=>{throw Error(m);}},()=>true,structuredClone,randomMath,FixedDate);
+ const factory=new Function('planning','quick','document','window','confirm','structuredClone','Math','Date',source+';return mountScorebook;')(planning,quick,document,{alert:m=>{throw Error(m);}},()=>true,structuredClone,randomMath,FixedDate);
  const api=factory({initialDb:{games:[],clubRoster:[],settings:{scale:1},draft:null},onSave:async()=>{},onRecorder:async()=>{},onGuard:async()=>true,onError:e=>{throw e;},securityPanel:()=>''});
  const eligible=[['P','SS'],['C','1B'],['1B','3B'],['2B','SS'],['3B','1B'],['SS','2B'],['LF','CF'],['CF','RF'],['RF','LF'],['P','1B'],['C','RF'],['2B','3B'],['LF'],['CF'],['RF'],[],[],[],[],[]];
  const roster=Array.from({length:20},(_,i)=>({id:`demo_p${String(i+1).padStart(2,'0')}`,num:i>17?'':String(i+1).padStart(2,'0'),name:`示範球員 ${String(i+1).padStart(2,'0')}`,positions:eligible[i]}));

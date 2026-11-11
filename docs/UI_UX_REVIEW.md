@@ -87,3 +87,5 @@ python3 -m http.server 4180 --bind 127.0.0.1 --directory dist-ui
 本輪最終結果及 SHA、CI、更新後試用網址會同步記錄於 PR #3；後端與 iPhone／iPad 真機仍不在本輪驗收範圍。
 
 CI 環境補強：GitHub Ubuntu Runner 預設的 HTTP Azure 套件鏡像反覆逾時，導致 Playwright 依賴安裝停留；UI workflow 改用 Ubuntu 官方 HTTPS 套件來源，沿用簽章金鑰及 TLS 驗證。這只調整暫時性的 UI 測試 Runner，不更動網站或後端設定。
+
+最新快速記分施工與逐步手機走查另見 [QUICK_SCORING_REVIEW.md](QUICK_SCORING_REVIEW.md)：常用鍵自訂／觸控排序、明確結果一鍵寫入、必要跑壘面板、滿壘保送打點、進階補記及獨立 Pages 預覽發布邊界。本輪 UI 驗證為 Node 43 項及瀏覽器 120 案例；早期輪次數字保留為歷史驗證範圍。

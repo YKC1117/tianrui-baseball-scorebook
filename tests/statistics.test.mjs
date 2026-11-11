@@ -1,3 +1,4 @@
+import * as quick from '../src/quick-scoring.mjs';
 import * as planning from '../src/lineup-planning.mjs';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
@@ -5,13 +6,13 @@ import {readFileSync} from 'node:fs';
 // Exercise the actual retained scoring functions with a tiny DOM fixture. No
 // production debug API or private test data is included in the application.
 function scoring(){
- let source=readFileSync(new URL('../src/scorebook.mjs',import.meta.url),'utf8').replace(/^import .*lineup-planning.*;\n/m,'').replace('export function mountScorebook','function mountScorebook');
+ let source=readFileSync(new URL('../src/scorebook.mjs',import.meta.url),'utf8').replace(/^import .*;\n/gm,'').replace('export function mountScorebook','function mountScorebook');
  const start=source.indexOf('attachEvents();render();');
  source=source.slice(0,start)+`return {freshGame,pitchCredit,newPitchSession,pitchRowsData,pitchingRows,battingRows,st,ps,applyMoves,commitPlay,commitRun,finish,get db(){return db;},setGame(x){db.games=[x];db.activeId=x.id;currentRecorder={gameId:x.id,name:'測試紀錄'};},setView(view){db.settings.pitchView=view;}};}`;
  source=source.replace('function render(){','function render(){return;');
  const elements={rbi:{value:'0'},playCode:{value:''},playNote:{value:''},runNote:{value:''},runActor:{value:'r0'}};let moves=[];
  const document={addEventListener:()=>{},getElementById:id=>elements[id]||null,querySelectorAll:()=>moves.map(([key,dest,er])=>({getAttribute:()=>key,value:dest})),querySelector:()=>({value:'yes'})};
- const factory=new Function('planning','document','window','confirm','structuredClone',source+';return mountScorebook;')(planning,document,{alert:message=>{throw Error(message);}},()=>true,structuredClone);
+ const factory=new Function('planning','quick','document','window','confirm','structuredClone',source+';return mountScorebook;')(planning,quick,document,{alert:message=>{throw Error(message);}},()=>true,structuredClone);
  const api=factory({initialDb:{games:[],clubRoster:[],settings:{scale:1},draft:null},onSave:async()=>{},onRecorder:async()=>{},onGuard:async()=>true,onError:error=>{throw error;},securityPanel:()=>''});
  return {api,elements,setMoves:value=>{moves=value;}};
 }
