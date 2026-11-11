@@ -1,0 +1,14 @@
+import {build} from 'esbuild';
+import {readFile,writeFile,mkdir,copyFile} from 'node:fs/promises';
+import {createDemoData} from './ui-demo-data.mjs';
+await mkdir('preview',{recursive:true});await writeFile('preview/demo-data.json',JSON.stringify(createDemoData(),null,2)+'\n');
+await mkdir('dist-ui',{recursive:true});
+await build({entryPoints:['preview/app.mjs'],outfile:'dist-ui/app.js',bundle:true,format:'iife',target:['safari16','chrome105'],minify:true});
+const html=await readFile('preview/index.html','utf8');
+await writeFile('dist-ui/index.html',html.replace('../src/ui-review.css','./ui.css').replace('./app.mjs','./app.js').replace('type="module"','defer'));
+await copyFile('src/ui-review.css','dist-ui/ui.css');await copyFile('logo-tianrui.png','dist-ui/logo-tianrui.png');await writeFile('dist-ui/.nojekyll','');
+const logo='data:image/png;base64,'+(await readFile('logo-tianrui.png')).toString('base64');
+const js=(await readFile('dist-ui/app.js','utf8')).replaceAll('./logo-tianrui.png',logo).replaceAll('</script','<\\/script');
+const standalone=html.replace('<link rel="stylesheet" href="../src/ui-review.css">','<style>'+await readFile('src/ui-review.css','utf8')+'</style>').replace('<script type="module" src="./app.mjs"></script>','<script>'+js+'</script>').replaceAll('./logo-tianrui.png',logo);
+await writeFile('dist-ui/tianrui-ui-preview.html',standalone);
+await writeFile('preview/tianrui-ui-preview.html',standalone);

@@ -13,7 +13,9 @@
     "build:firebase": "node scripts/build-firebase.mjs",
     "test:firebase": "firebase emulators:exec --project demo-tianrui --only auth,firestore \"node --import ./tests/support/firebase-node.mjs --test tests/firebase/*.test.mjs\"",
     "test:firebase:browser": "firebase emulators:exec --project demo-tianrui --only auth,firestore \"node --import ./tests/support/firebase-node.mjs node_modules/@playwright/test/cli.js test --config playwright.firebase.config.mjs\"",
-    "preflight:supabase": "node scripts/preflight.mjs"
+    "preflight:supabase": "node scripts/preflight.mjs",
+    "build:ui-preview": "node scripts/build-ui-preview.mjs",
+    "test:ui": "npm run build:ui-preview && playwright test --config playwright.ui.config.mjs"
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "6.0.0",

@@ -1,0 +1,25 @@
+name: UI review
+on:
+  push:
+    branches: [work/ui-ux-review]
+  pull_request:
+jobs:
+  ui-verification:
+    if: startsWith(github.head_ref || github.ref_name, 'work/ui-ux')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - run: npx playwright install --with-deps chromium webkit
+      - run: npm run test:ui
+      - name: Verify the delivered preview matches its sources
+        run: git diff --exit-code -- preview/demo-data.json preview/tianrui-ui-preview.html
