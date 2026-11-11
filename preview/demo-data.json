@@ -9,102 +9,164 @@
           {
             "id": "demo_p01",
             "num": "01",
-            "name": "示範球員 01"
+            "name": "示範球員 01",
+            "positions": [
+              "P",
+              "SS"
+            ]
           },
           {
             "id": "demo_p02",
             "num": "02",
-            "name": "示範球員 02"
+            "name": "示範球員 02",
+            "positions": [
+              "C",
+              "1B"
+            ]
           },
           {
             "id": "demo_p03",
             "num": "03",
-            "name": "示範球員 03"
+            "name": "示範球員 03",
+            "positions": [
+              "1B",
+              "3B"
+            ]
           },
           {
             "id": "demo_p04",
             "num": "04",
-            "name": "示範球員 04"
+            "name": "示範球員 04",
+            "positions": [
+              "2B",
+              "SS"
+            ]
           },
           {
             "id": "demo_p05",
             "num": "05",
-            "name": "示範球員 05"
+            "name": "示範球員 05",
+            "positions": [
+              "3B",
+              "1B"
+            ]
           },
           {
             "id": "demo_p06",
             "num": "06",
-            "name": "示範球員 06"
+            "name": "示範球員 06",
+            "positions": [
+              "SS",
+              "2B"
+            ]
           },
           {
             "id": "demo_p07",
             "num": "07",
-            "name": "示範球員 07"
+            "name": "示範球員 07",
+            "positions": [
+              "LF",
+              "CF"
+            ]
           },
           {
             "id": "demo_p08",
             "num": "08",
-            "name": "示範球員 08"
+            "name": "示範球員 08",
+            "positions": [
+              "CF",
+              "RF"
+            ]
           },
           {
             "id": "demo_p09",
             "num": "09",
-            "name": "示範球員 09"
+            "name": "示範球員 09",
+            "positions": [
+              "RF",
+              "LF"
+            ]
           },
           {
             "id": "demo_p10",
             "num": "10",
-            "name": "示範球員 10"
+            "name": "示範球員 10",
+            "positions": [
+              "P",
+              "1B"
+            ]
           },
           {
             "id": "demo_p11",
             "num": "11",
-            "name": "示範球員 11"
+            "name": "示範球員 11",
+            "positions": [
+              "C",
+              "RF"
+            ]
           },
           {
             "id": "demo_p12",
             "num": "12",
-            "name": "示範球員 12"
+            "name": "示範球員 12",
+            "positions": [
+              "2B",
+              "3B"
+            ]
           },
           {
             "id": "demo_p13",
             "num": "13",
-            "name": "示範球員 13"
+            "name": "示範球員 13",
+            "positions": [
+              "LF"
+            ]
           },
           {
             "id": "demo_p14",
             "num": "14",
-            "name": "示範球員 14"
+            "name": "示範球員 14",
+            "positions": [
+              "CF"
+            ]
           },
           {
             "id": "demo_p15",
             "num": "15",
-            "name": "示範球員 15"
+            "name": "示範球員 15",
+            "positions": [
+              "RF"
+            ]
           },
           {
             "id": "demo_p16",
             "num": "16",
-            "name": "示範球員 16"
+            "name": "示範球員 16",
+            "positions": []
           },
           {
             "id": "demo_p17",
             "num": "17",
-            "name": "示範球員 17"
+            "name": "示範球員 17",
+            "positions": []
           },
           {
             "id": "demo_p18",
             "num": "18",
-            "name": "示範球員 18"
+            "name": "示範球員 18",
+            "positions": []
           },
           {
             "id": "demo_p19",
             "num": "",
-            "name": "示範球員 19"
+            "name": "示範球員 19",
+            "positions": []
           },
           {
             "id": "demo_p20",
             "num": "",
-            "name": "示範球員 20"
+            "name": "示範球員 20",
+            "positions": []
           }
         ],
         "lineup": [
@@ -1620,102 +1682,164 @@
           {
             "id": "demo_p01",
             "num": "01",
-            "name": "示範球員 01"
+            "name": "示範球員 01",
+            "positions": [
+              "P",
+              "SS"
+            ]
           },
           {
             "id": "demo_p02",
             "num": "02",
-            "name": "示範球員 02"
+            "name": "示範球員 02",
+            "positions": [
+              "C",
+              "1B"
+            ]
           },
           {
             "id": "demo_p03",
             "num": "03",
-            "name": "示範球員 03"
+            "name": "示範球員 03",
+            "positions": [
+              "1B",
+              "3B"
+            ]
           },
           {
             "id": "demo_p04",
             "num": "04",
-            "name": "示範球員 04"
+            "name": "示範球員 04",
+            "positions": [
+              "2B",
+              "SS"
+            ]
           },
           {
             "id": "demo_p05",
             "num": "05",
-            "name": "示範球員 05"
+            "name": "示範球員 05",
+            "positions": [
+              "3B",
+              "1B"
+            ]
           },
           {
             "id": "demo_p06",
             "num": "06",
-            "name": "示範球員 06"
+            "name": "示範球員 06",
+            "positions": [
+              "SS",
+              "2B"
+            ]
           },
           {
             "id": "demo_p07",
             "num": "07",
-            "name": "示範球員 07"
+            "name": "示範球員 07",
+            "positions": [
+              "LF",
+              "CF"
+            ]
           },
           {
             "id": "demo_p08",
             "num": "08",
-            "name": "示範球員 08"
+            "name": "示範球員 08",
+            "positions": [
+              "CF",
+              "RF"
+            ]
           },
           {
             "id": "demo_p09",
             "num": "09",
-            "name": "示範球員 09"
+            "name": "示範球員 09",
+            "positions": [
+              "RF",
+              "LF"
+            ]
           },
           {
             "id": "demo_p10",
             "num": "10",
-            "name": "示範球員 10"
+            "name": "示範球員 10",
+            "positions": [
+              "P",
+              "1B"
+            ]
           },
           {
             "id": "demo_p11",
             "num": "11",
-            "name": "示範球員 11"
+            "name": "示範球員 11",
+            "positions": [
+              "C",
+              "RF"
+            ]
           },
           {
             "id": "demo_p12",
             "num": "12",
-            "name": "示範球員 12"
+            "name": "示範球員 12",
+            "positions": [
+              "2B",
+              "3B"
+            ]
           },
           {
             "id": "demo_p13",
             "num": "13",
-            "name": "示範球員 13"
+            "name": "示範球員 13",
+            "positions": [
+              "LF"
+            ]
           },
           {
             "id": "demo_p14",
             "num": "14",
-            "name": "示範球員 14"
+            "name": "示範球員 14",
+            "positions": [
+              "CF"
+            ]
           },
           {
             "id": "demo_p15",
             "num": "15",
-            "name": "示範球員 15"
+            "name": "示範球員 15",
+            "positions": [
+              "RF"
+            ]
           },
           {
             "id": "demo_p16",
             "num": "16",
-            "name": "示範球員 16"
+            "name": "示範球員 16",
+            "positions": []
           },
           {
             "id": "demo_p17",
             "num": "17",
-            "name": "示範球員 17"
+            "name": "示範球員 17",
+            "positions": []
           },
           {
             "id": "demo_p18",
             "num": "18",
-            "name": "示範球員 18"
+            "name": "示範球員 18",
+            "positions": []
           },
           {
             "id": "demo_p19",
             "num": "",
-            "name": "示範球員 19"
+            "name": "示範球員 19",
+            "positions": []
           },
           {
             "id": "demo_p20",
             "num": "",
-            "name": "示範球員 20"
+            "name": "示範球員 20",
+            "positions": []
           }
         ],
         "lineup": [
@@ -3542,102 +3666,164 @@
     {
       "id": "demo_p01",
       "num": "01",
-      "name": "示範球員 01"
+      "name": "示範球員 01",
+      "positions": [
+        "P",
+        "SS"
+      ]
     },
     {
       "id": "demo_p02",
       "num": "02",
-      "name": "示範球員 02"
+      "name": "示範球員 02",
+      "positions": [
+        "C",
+        "1B"
+      ]
     },
     {
       "id": "demo_p03",
       "num": "03",
-      "name": "示範球員 03"
+      "name": "示範球員 03",
+      "positions": [
+        "1B",
+        "3B"
+      ]
     },
     {
       "id": "demo_p04",
       "num": "04",
-      "name": "示範球員 04"
+      "name": "示範球員 04",
+      "positions": [
+        "2B",
+        "SS"
+      ]
     },
     {
       "id": "demo_p05",
       "num": "05",
-      "name": "示範球員 05"
+      "name": "示範球員 05",
+      "positions": [
+        "3B",
+        "1B"
+      ]
     },
     {
       "id": "demo_p06",
       "num": "06",
-      "name": "示範球員 06"
+      "name": "示範球員 06",
+      "positions": [
+        "SS",
+        "2B"
+      ]
     },
     {
       "id": "demo_p07",
       "num": "07",
-      "name": "示範球員 07"
+      "name": "示範球員 07",
+      "positions": [
+        "LF",
+        "CF"
+      ]
     },
     {
       "id": "demo_p08",
       "num": "08",
-      "name": "示範球員 08"
+      "name": "示範球員 08",
+      "positions": [
+        "CF",
+        "RF"
+      ]
     },
     {
       "id": "demo_p09",
       "num": "09",
-      "name": "示範球員 09"
+      "name": "示範球員 09",
+      "positions": [
+        "RF",
+        "LF"
+      ]
     },
     {
       "id": "demo_p10",
       "num": "10",
-      "name": "示範球員 10"
+      "name": "示範球員 10",
+      "positions": [
+        "P",
+        "1B"
+      ]
     },
     {
       "id": "demo_p11",
       "num": "11",
-      "name": "示範球員 11"
+      "name": "示範球員 11",
+      "positions": [
+        "C",
+        "RF"
+      ]
     },
     {
       "id": "demo_p12",
       "num": "12",
-      "name": "示範球員 12"
+      "name": "示範球員 12",
+      "positions": [
+        "2B",
+        "3B"
+      ]
     },
     {
       "id": "demo_p13",
       "num": "13",
-      "name": "示範球員 13"
+      "name": "示範球員 13",
+      "positions": [
+        "LF"
+      ]
     },
     {
       "id": "demo_p14",
       "num": "14",
-      "name": "示範球員 14"
+      "name": "示範球員 14",
+      "positions": [
+        "CF"
+      ]
     },
     {
       "id": "demo_p15",
       "num": "15",
-      "name": "示範球員 15"
+      "name": "示範球員 15",
+      "positions": [
+        "RF"
+      ]
     },
     {
       "id": "demo_p16",
       "num": "16",
-      "name": "示範球員 16"
+      "name": "示範球員 16",
+      "positions": []
     },
     {
       "id": "demo_p17",
       "num": "17",
-      "name": "示範球員 17"
+      "name": "示範球員 17",
+      "positions": []
     },
     {
       "id": "demo_p18",
       "num": "18",
-      "name": "示範球員 18"
+      "name": "示範球員 18",
+      "positions": []
     },
     {
       "id": "demo_p19",
       "num": "",
-      "name": "示範球員 19"
+      "name": "示範球員 19",
+      "positions": []
     },
     {
       "id": "demo_p20",
       "num": "",
-      "name": "示範球員 20"
+      "name": "示範球員 20",
+      "positions": []
     }
   ],
   "activeId": "demo_live",
@@ -3647,6 +3833,8 @@
   },
   "logo": null,
   "draft": {
+    "manualPositions": [],
+    "scheduleId": "demo_s1",
     "date": "2026-11-15",
     "opponent": "模擬山海隊",
     "side": "away",

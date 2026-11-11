@@ -1,3 +1,4 @@
+import {normalizePositions,normalizePlanningState} from './lineup-planning.mjs';
 const idPattern=/^[a-zA-Z0-9_-]{1,128}$/;
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 export const validId=value=>typeof value==='string'&&idPattern.test(value)&&value!=='prototype'&&!Object.hasOwn(Object.prototype,value);
@@ -6,6 +7,7 @@ export function validateRoster(list,max=60,uniqueNumbers=true) {
  const ids=new Set(),nums=new Set();
  for(const p of list){
   if(!record(p)||!validId(p.id)||ids.has(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>40||typeof p.num!=='string'||p.num.length>5||(uniqueNumbers&&p.num&&nums.has(p.num)))throw Error('名冊含無效姓名、ID 或重複背號');
+  normalizePositions(p.positions);
   ids.add(p.id);if(p.num)nums.add(p.num);
  }
  return list;
@@ -40,5 +42,5 @@ export function parseBackup(raw) {
  if(db.schedule)validateSchedule(db.schedule);
  if(db.draft?.guests)validateRoster(db.draft.guests,20,false);
  if(db.logo&&!/^data:image\/png;base64,[a-zA-Z0-9+/=]+$/.test(db.logo))throw Error('備份 Logo 格式不正確');
- return db;
+ return normalizePlanningState(db);
 }
