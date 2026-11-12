@@ -1,3 +1,6 @@
+import {validateTeamDH} from './baseball-rules.mjs';
+import {normalizeConfig} from './quick-scoring.mjs';
+import {normalizePositions,normalizePlanningState} from './lineup-planning.mjs';
 const idPattern=/^[a-zA-Z0-9_-]{1,128}$/;
 const record=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 export const validId=value=>typeof value==='string'&&idPattern.test(value)&&value!=='prototype'&&!Object.hasOwn(Object.prototype,value);
@@ -6,6 +9,7 @@ export function validateRoster(list,max=60,uniqueNumbers=true) {
  const ids=new Set(),nums=new Set();
  for(const p of list){
   if(!record(p)||!validId(p.id)||ids.has(p.id)||typeof p.name!=='string'||!p.name.trim()||p.name.length>40||typeof p.num!=='string'||p.num.length>5||(uniqueNumbers&&p.num&&nums.has(p.num)))throw Error('名冊含無效姓名、ID 或重複背號');
+  normalizePositions(p.positions);
   ids.add(p.id);if(p.num)nums.add(p.num);
  }
  return list;
@@ -17,8 +21,10 @@ export function validateGame(game) {
   validateRoster(t.roster,40,false);
   const ids=new Set(t.roster.map(p=>p.id));
   if(!Array.isArray(t.lineup)||t.lineup.length!==9||new Set(t.lineup).size!==9||t.lineup.some(id=>!ids.has(id))||!ids.has(t.pitcher))throw Error('先發名單或投手資料不正確');
+  validateTeamDH(t);
   if(!Array.isArray(game.score[side])||game.score[side].length!==9||game.score[side].some(v=>v!==null&&(!Number.isInteger(v)||v<0)))throw Error('比分資料不正確');
  }
+ if(game.pendingThirdStrike){const pending=game.pendingThirdStrike,before=pending.before;if(!record(pending)||!record(before)||!record(before.state)||!['away','home'].includes(before.atkKey)||before.defKey==before.atkKey||!['away','home'].includes(before.defKey)||!Number.isInteger(before.eventCutoff)||before.eventCutoff<0||before.eventCutoff>game.events.length||!Number.isInteger(before.next)||before.next<0||before.next>8||!validId(before.batterId)||!record(before.batting)||!record(before.pitching)||!record(before.sessions)||!['top','bottom'].includes(before.state.half)||!Number.isInteger(before.state.inning)||before.state.inning<1||before.state.inning>9||!Number.isInteger(before.state.outs)||before.state.outs<0||before.state.outs>2||!Array.isArray(before.state.bases)||before.state.bases.length!==3||![0,1].includes(pending.pitchDelta)||!validId(pending.paEventId)||typeof pending.appliedToken!=='string')throw Error('第三好球改判快照格式不正確');for(const values of [before.batting,before.pitching,before.sessions])if(Object.keys(values).some(id=>!validId(id)))throw Error('改判快照含無效球員或登板 ID');}
  return game;
 }
 export function validateSchedule(schedule){
@@ -39,6 +45,7 @@ export function parseBackup(raw) {
  validateRoster(db.clubRoster||[]);db.games.forEach(validateGame);
  if(db.schedule)validateSchedule(db.schedule);
  if(db.draft?.guests)validateRoster(db.draft.guests,20,false);
+ if(db.settings?.quickScoring)normalizeConfig(db.settings.quickScoring);
  if(db.logo&&!/^data:image\/png;base64,[a-zA-Z0-9+/=]+$/.test(db.logo))throw Error('備份 Logo 格式不正確');
- return db;
+ return normalizePlanningState(db);
 }

@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#132c46"><meta name="description" content="天睿棒球紀錄系統 UI／UX 試用版。使用模擬資料，可直接操作。"><title>天睿棒球｜介面試用版</title><link rel="stylesheet" href="../src/ui-review.css"></head>
+<body>
+<a class="skipLink" href="#app">跳至主要內容</a>
+<header class="siteHeader"><div class="headerInner"><div class="brand"><div class="logo" id="logo"><img src="./logo-tianrui.png" alt="天睿既有隊徽"></div><div><strong>天睿教育棒球隊</strong><small>TIANRUI BASEBALL CLUB</small></div></div><span class="headerBadge">場邊紀錄</span></div></header>
+<main class="app" id="app"></main><div id="modalhost"></div>
+<dialog id="previewSettings" class="settingsDialog"><div class="sectionHead"><h2>試用版設定</h2><button class="btn" id="closePreviewSettings">關閉</button></div><p>這裡只有模擬資料，不需要登入。可自由修改、記分與換人，重新開啟時會保留你的試用進度。</p><div class="stack"><button class="btn primary" id="exportPreview">下載試用進度備份</button><button class="btn" id="importPreview">載入試用備份</button><button class="btn" id="downloadPreviewHTML">下載可離線開啟的試用版</button><button class="btn danger" id="resetPreview">重設為最初的模擬資料</button></div><input type="file" id="previewImport" accept=".json" hidden></dialog>
+<script type="module" src="./app.mjs"></script>
+</body></html>

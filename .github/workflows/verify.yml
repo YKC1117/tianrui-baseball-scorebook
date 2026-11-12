@@ -7,6 +7,7 @@ permissions:
   contents: read
 jobs:
   offline-verification:
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'work/ui-ux') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

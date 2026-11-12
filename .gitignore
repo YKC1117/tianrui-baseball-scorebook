@@ -13,3 +13,9 @@ work/
 # Emulator diagnostics can contain test payloads. Never publish runtime logs.
 *-debug.log
 .firebase/
+
+# Isolated UI preview build and browser artifacts
+dist-ui/
+test-results-ui/
+
+node_modules
