@@ -1,5 +1,7 @@
 # 比賽現場快速記分：施工與走查報告
 
+最新 DH／S3／攻守互換施工與測試，見 [DH_S3_REVIEW.md](DH_S3_REVIEW.md)；本頁保留前輪紀錄。
+
 接續 UI Draft PR #3／`a4c9a13`，依 [施工留言 #6808425004](https://github.com/YKC1117/tianrui-baseball-scorebook/pull/3#issuecomment-6808425004) 修正。原本所有結果一律呼叫大型 `playOpen()` 表單；現在由快速判斷層決定直接提交或詢問必要跑壘結果，仍使用原 `commitPlay()` 的打擊／投球統計增量與登板段歸屬。詳細模式保留。
 
 只有合成球員與賽事；不連 Firebase、帳號或資料庫。沿用原 Logo、多守位、賽程及分場草稿。

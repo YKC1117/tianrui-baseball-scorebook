@@ -1,21 +1,22 @@
 // Planning metadata is independent of historical game defense and statistics.
 export const positions=[['P','投手'],['C','捕手'],['1B','一壘'],['2B','二壘'],['3B','三壘'],['SS','游擊'],['LF','左外野'],['CF','中外野'],['RF','右外野']];
+export const eligibilityPositions=[...positions,['DH','指定打擊']];
 const aliases={B1:'1B',B2:'2B',B3:'3B'};
 export const canonical=code=>aliases[code]||code;
 export const actual=code=>({'1B':'B1','2B':'B2','3B':'B3'}[code]||code);
 export function normalizePositions(value){
  if(value===undefined||value===null)return [];
- if(!Array.isArray(value)||value.some(p=>typeof p!=='string'||!positions.some(([code])=>code===canonical(p))))throw Error('可守位置必須是九種守位組成的陣列');
- return positions.map(([code])=>code).filter(code=>value.some(p=>canonical(p)===code));
+ if(!Array.isArray(value)||value.some(p=>typeof p!=='string'||!eligibilityPositions.some(([code])=>code===canonical(p))))throw Error('可守位置必須是九種守位或 DH 組成的陣列');
+ return eligibilityPositions.map(([code])=>code).filter(code=>value.some(p=>canonical(p)===code));
 }
-export const positionSummary=value=>normalizePositions(value).map(code=>positions.find(([p])=>p===code)[1]).join('・')||'可守位置尚未設定';
+export const positionSummary=value=>normalizePositions(value).map(code=>eligibilityPositions.find(([p])=>p===code)[1]).join('・')||'可守位置尚未設定';
 const copy=value=>structuredClone(value);
 export const validPlanningId=id=>typeof id==='string'&&/^[a-zA-Z0-9_-]{1,128}$/.test(id)&&id!=='prototype'&&!Object.hasOwn(Object.prototype,id);
 export function normalizePlanningState(value){
  const db=copy(value);db.clubRoster=(db.clubRoster||[]).map(p=>({...p,positions:normalizePositions(p.positions)}));
  if(db.scheduleDrafts!==undefined&&(db.scheduleDrafts===null||typeof db.scheduleDrafts!=='object'||Array.isArray(db.scheduleDrafts)))throw Error('場次草稿格式不正確');
  db.scheduleDrafts=db.scheduleDrafts||{};
- const normalizeDraft=d=>{if(!d)return; if(d.scheduleId&&!validPlanningId(d.scheduleId))throw Error('場次關聯 ID 不正確');if(d.manualPositions===undefined)d.manualPositions=(d.lineup||[]).filter(id=>positions.some(([code])=>actual(code)===d.positions?.[id]));if(d.guests)d.guests=d.guests.map(p=>({...p,positions:normalizePositions(p.positions)}));};
+ const normalizeDraft=d=>{if(!d)return;for(const key of ['useDH','opponentDH'])if(d[key]!==undefined&&typeof d[key]!=='boolean')throw Error('DH 模式必須為開啟或關閉'); if(d.scheduleId&&!validPlanningId(d.scheduleId))throw Error('場次關聯 ID 不正確');if(d.manualPositions===undefined)d.manualPositions=(d.lineup||[]).filter(id=>positions.some(([code])=>actual(code)===d.positions?.[id]));if(d.guests)d.guests=d.guests.map(p=>({...p,positions:normalizePositions(p.positions)}));};
  normalizeDraft(db.draft);normalizeDraft(db.unlinkedDraft);
  for(const [id,draft] of Object.entries(db.scheduleDrafts)){if(!validPlanningId(id)||!draft||draft.scheduleId!==id)throw Error('場次草稿關聯不正確');normalizeDraft(draft);}
  return db;
@@ -55,10 +56,11 @@ export function analyzeCoverage(players){
  return {matched:Object.keys(matching.byPosition).length,missing:9-Object.keys(matching.byPosition).length,conflicts,unknown:unique.filter(p=>!normalizePositions(p.positions).length),positions:positions.map(([code,label])=>({code,label,candidates:candidates[code],status:!candidates[code].length?'待補':affected.has(code)?'需要調整':'可選'}))};
 }
 export function suggestDefense(draft,players){
- const starters=draft.lineup.map(id=>players.find(p=>p.id===id)).filter(Boolean);
+ const ids=draft.useDH?[draft.pitcherId,...draft.lineup.filter(id=>id!==draft.dhId)]:draft.lineup;const starters=ids.map(id=>players.find(p=>p.id===id)).filter(Boolean);
  if(starters.length!==9||new Set(starters.map(p=>p.id)).size!==9)return null;
- const pinned=Object.fromEntries((draft.manualPositions||[]).filter(id=>draft.lineup.includes(id)).map(id=>[id,canonical(draft.positions[id])]));
+ const pinned=Object.fromEntries((draft.manualPositions||[]).filter(id=>ids.includes(id)).map(id=>[id,canonical(draft.positions[id])]));
+ if(draft.useDH)pinned[draft.pitcherId]='P';
  const result=matchPlayers(starters,positions.map(([code])=>code),pinned);
  if(!result||Object.keys(result.byPosition).length!==9)return null;
- return Object.fromEntries(Object.entries(result.byPosition).map(([code,id])=>[id,actual(code)]));
+ return {...Object.fromEntries(Object.entries(result.byPosition).map(([code,id])=>[id,actual(code)])),...(draft.useDH?{[draft.dhId]:'DH'}:{})};
 }

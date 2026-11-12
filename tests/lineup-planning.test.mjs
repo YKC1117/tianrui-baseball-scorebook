@@ -12,7 +12,7 @@ test('legacy twenty-player roster and backups migrate optional positions without
  const historic={id:'historical',away:{roster:[{id:'p1',name:'原球員',num:''}]},defense:{P:'p1'}};
  assert.deepEqual(normalizePlanningState({...old,games:[historic]}).games,[historic]);
  assert.deepEqual(normalizePositions(['RF','B1','1B','P','RF']),['P','1B','RF']);assert.deepEqual(normalizePositions(null),[]);
- for(const bad of ['P',['DH'],[1],{}]){assert.throws(()=>normalizePositions(bad));assert.throws(()=>validateRoster([{...clubRoster[0],positions:bad}]));}
+ for(const bad of ['P',['INVALID'],[1],{}]){assert.throws(()=>normalizePositions(bad));assert.throws(()=>validateRoster([{...clubRoster[0],positions:bad}]));}
 });
 test('schedule drafts isolate attendance, guests, manual defense and legacy unlinked drafts across switches and backups',()=>{
  const db=normalizePlanningState({clubRoster:players,games:[],draft:{...blank(),opponent:'舊草稿',selected:['p0']}});

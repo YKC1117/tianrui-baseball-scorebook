@@ -9,6 +9,7 @@ await writeFile('dist-ui/index.html',html.replace('../src/ui-review.css','./ui.c
 await copyFile('src/ui-review.css','dist-ui/ui.css');await copyFile('logo-tianrui.png','dist-ui/logo-tianrui.png');await writeFile('dist-ui/.nojekyll','');
 const logo='data:image/png;base64,'+(await readFile('logo-tianrui.png')).toString('base64');
 const js=(await readFile('dist-ui/app.js','utf8')).replaceAll('./logo-tianrui.png',logo).replaceAll('</script','<\\/script');
-const standalone=html.replace('<link rel="stylesheet" href="../src/ui-review.css">','<style>'+await readFile('src/ui-review.css','utf8')+'</style>').replace('<script type="module" src="./app.mjs"></script>','<script>'+js+'</script>').replaceAll('./logo-tianrui.png',logo);
+const css=await readFile('src/ui-review.css','utf8');
+const standalone=html.replace('<link rel="stylesheet" href="../src/ui-review.css">',()=>'<style>'+css+'</style>').replace('<script type="module" src="./app.mjs"></script>',()=>'<script>'+js+'</script>').replaceAll('./logo-tianrui.png',logo);
 await writeFile('dist-ui/tianrui-ui-preview.html',standalone);
 await writeFile('preview/tianrui-ui-preview.html',standalone);
