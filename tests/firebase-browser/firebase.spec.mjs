@@ -36,7 +36,8 @@ test('real Firebase: shared account on two devices, hidden lease, offline takeov
   await login(b);await nav(b,'team');await expect(b.locator('[data-club-name]')).toHaveCount(20);await expect(b.locator('[data-club-num="p0"]')).toHaveValue('');await nav(b,'home');
   let denial='';b.once('dialog',d=>{denial=d.message();});await b.locator('[data-open]').first().click();await b.locator('#recorderName').fill('紀錄乙');await b.locator('#recorderConfirm').click();await expect.poll(()=>denial).toContain('另一裝置');
   await a.locator('[data-pitch="B"]').click();await expect.poll(async()=>(await rows())[0].payload.balls).toBe(1);
-  await contexts[0].setOffline(true);await a.locator('[data-pitch="B"]').click();await expect(a.locator('#syncStatus')).toContainText('待同步 1 筆');await expect(a.locator('#syncStatus')).toContainText('離線');
+  // Real pitches are distinct events, beyond the existing 250 ms anti-double-tap window.
+  await contexts[0].setOffline(true);await a.waitForTimeout(300);await a.locator('[data-pitch="B"]').click();await expect(a.locator('#syncStatus')).toContainText('待同步 1 筆');await expect(a.locator('#syncStatus')).toContainText('離線');
   await privileged(db=>updateDoc(doc(db,'leases',id),{expiresAt:Timestamp.fromMillis(1)}));
   await b.locator('[data-open]').first().click();await b.locator('#recorderName').fill('紀錄乙');await b.locator('#recorderConfirm').click();await expect(b.locator('[data-pitch="S"]')).toBeVisible();await b.locator('[data-pitch="S"]').click();await sync(b);await tool(b,'releaseRecording');await expect(b.locator('#syncStatus')).toContainText('紀錄權已交出');
   await contexts[0].setOffline(false);await a.locator('#syncNow').click();await expect(a.locator('#syncStatus')).toContainText('版本衝突');
