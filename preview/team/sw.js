@@ -1,5 +1,5 @@
-const PREFIX='tianrui-integrated:'+new URL('.',self.location.href).pathname+':';const VERSION=PREFIX+'e10f2e4b9e2e3559';
-const urls=['./','./index.html','./config.mjs','./manifest.webmanifest','./icon-192.png','./icon-512.png'].map(p=>new URL(p,self.location.href).href),allowed=new Set(urls);
+const PREFIX='tianrui-integrated:'+new URL('.',self.location.href).pathname+':';const VERSION=PREFIX+'d04ae1a75e7fae3a';
+const urls=['./','./index.html','./config.mjs','./manifest.webmanifest','./icon-192.png','./icon-512.png','./firebase.mjs.LEGAL.txt'].map(p=>new URL(p,self.location.href).href),allowed=new Set(urls);
 self.addEventListener('install',e=>e.waitUntil(caches.open(VERSION).then(c=>c.addAll(urls)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
 self.addEventListener('fetch',e=>{const u=new URL(e.request.url);if(e.request.method!=='GET'||u.origin!==self.location.origin)return;u.search='';u.hash='';if(!allowed.has(u.href))return;e.respondWith(caches.open(VERSION).then(async c=>{if(u.pathname.endsWith('/config.mjs')||e.request.mode==='navigate'){try{const r=await fetch(e.request,{cache:'no-cache'});if(r.ok){await c.put(u.href,r.clone());return r;}}catch{}}return(await c.match(u.href))||fetch(e.request);}));});
