@@ -1,3 +1,4 @@
+import {canonicalJSON} from './json-data.mjs';
 import {cloudConfig} from './config.mjs';
 import {TianRuiCloud} from './firebase-gateway.mjs';
 import {WorkspaceStore} from './workspace-store.mjs';
@@ -88,7 +89,7 @@ async function start(){
   db.games=db.games.map(game=>ticket?.gameId===game.id?game:stored.games.find(g=>g.id===game.id)||game);
   validateRoster(db.clubRoster);db.games.forEach(validateGame);
   for(const game of db.games)if(game.logo)delete game.logo;
-  if(!documentRecorder&&(JSON.stringify(db.clubRoster)!==JSON.stringify(stored.clubRoster)||JSON.stringify(db.schedule)!==JSON.stringify(stored.schedule)||JSON.stringify(planningDocument(db))!==JSON.stringify(planningDocument(stored))))documentRecorder=await askName();
+  if(!documentRecorder&&(canonicalJSON(db.clubRoster)!==canonicalJSON(stored.clubRoster)||canonicalJSON(db.schedule)!==canonicalJSON(stored.schedule)||canonicalJSON(planningDocument(db))!==canonicalJSON(planningDocument(stored))))documentRecorder=await askName();
   await currentEngine.commit(db,documentRecorder,'EDIT',false,ticket);updateStatus();
   void currentEngine.flush().catch(onError);return currentEngine.db;
  };

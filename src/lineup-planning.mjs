@@ -1,3 +1,4 @@
+export {canonicalJSON} from './json-data.mjs';
 // Planning metadata is independent of historical game defense and statistics.
 export const positions=[['P','投手'],['C','捕手'],['1B','一壘'],['2B','二壘'],['3B','三壘'],['SS','游擊'],['LF','左外野'],['CF','中外野'],['RF','右外野']];
 export const eligibilityPositions=[...positions,['DH','指定打擊']];
