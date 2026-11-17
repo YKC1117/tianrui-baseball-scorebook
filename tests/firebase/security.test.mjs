@@ -35,7 +35,7 @@ test('real Auth emulator: two shared-account sessions, wrong password, unknown a
 });
 test('Rules deny anonymous, unapproved and anonymous-provider reads/writes, access escalation and unknown paths',async()=>{
  for(const db of [env.unauthenticatedContext().firestore(),env.authenticatedContext(users.other.uid).firestore(),env.authenticatedContext(users.recorder.uid,{firebase:{sign_in_provider:'anonymous'}}).firestore()]){
-  for(const path of ['access/team','team/roster','games/x','audit/x','leases/x','proofs/x']){
+  for(const path of ['access/team','team/roster','team/planning','games/x','audit/x','leases/x','proofs/x']){
    await assertFails(getDoc(doc(db,path)));await assertFails(setDoc(doc(db,path),{attack:true}));
   }
  }
@@ -124,4 +124,11 @@ test('cloud archive includes server audit, checksum, all shared data and restore
 test('misconfigured identical role UIDs fail closed rather than elevating the shared account',async()=>{
  await privileged(db=>updateDoc(doc(db,'access/team'),{adminUid:users.recorder.uid}));
  try{await failCode(b.memberRole(),'NOT_APPROVED');}finally{await access();}
+});
+test('new UI data contract: DH state and shared planning survive real Rules transactions and reject malformed writes',async()=>{
+ const {engine}=await import('../support/scorebook-engine.mjs');const {defaultOpponentDH}=await import('../../src/baseball-rules.mjs');const {planningDocument}=await import('../../src/planning-document.mjs');
+ const e=engine(),g=e.game;g.id='dh_contract';for(const side of ['home','away'])defaultOpponentDH(g[side]);g.strikes=2;e.api.setGame(g);e.api.runPitch('S');const state=e.api.db.games[0];await admin.createGame(state,'DH 驗收','dh-create',crypto.randomUUID());assert.equal((await b.getGame(g.id)).state.pendingThirdStrike.pitchDelta,1);
+ const plan=planningDocument({draft:{useDH:true,selected:[],lineup:[],positions:{},guests:[]},scheduleDrafts:{}});await a.signIn(users.recorder.email,password);await a.saveDocument('planning',0,plan,'排陣甲','EDIT','planning-create');assert.deepEqual((await b.getDocument('planning')).document,plan);const archive=JSON.parse(await decodeArchive(await admin.exportBackup()));assert.deepEqual(archive.workspace.db.draft,plan.draft);
+ const db=memberDb(),id='dh_bad',invalid=structuredClone(state);invalid.id=id;invalid.away.lineup[0]=invalid.away.pitcher;
+ const batch=writeBatch(db);const token=crypto.randomUUID(),op='dh-bad-create';batch.set(doc(db,'games',id),{revision:1,payload:invalid,lastOperation:op,updatedAt:serverTimestamp()});batch.set(doc(db,'audit',op),{kind:'game',target:id,actor:users.recorder.uid,name:'攻擊測試',before:0,after:1,operation:'CREATE',payload:invalid,at:serverTimestamp()});batch.set(doc(db,'proofs',op),{kind:'game',gameId:id,token,actor:users.recorder.uid,name:'攻擊測試',at:serverTimestamp()});batch.set(doc(db,'leases',id),{token,actor:users.recorder.uid,name:'攻擊測試',proofId:op,expiresAt:Timestamp.fromMillis(Date.now()+90000)});await assertFails(batch.commit());
 });

@@ -1,3 +1,4 @@
+import {planningDocument,validatePlanning,applyPlanning} from './planning-document.mjs';
 import * as f from './vendor/firebase.mjs';
 import {CloudError} from './cloud-gateway.mjs';
 import {validateGame,validateRoster,validateSchedule,validId} from './validation.mjs';
@@ -70,8 +71,8 @@ export class TianRuiCloud {
  async acquireLease(id,token,name){
   this.ref('game',id);this._assertRecorder(name);
   await this.verifySession();
-  try{const batch=f.writeBatch(this.db);this.proof(batch,'claim',id,token,name,crypto.randomUUID());await batch.commit();this.names.set(id,name.trim());return true;}
-  catch(e){if(e.code==='permission-denied')return false;throw cloudError(e);}
+  try{const batch=f.writeBatch(this.db);this.proof(batch,'claim',id,token,name,crypto.randomUUID());await this.call(()=>batch.commit());this.names.set(id,name.trim());return true;}
+  catch(e){if(['permission-denied','NOT_APPROVED'].includes(e.code))return false;throw cloudError(e);}
  }
  async releaseLease(id,token){
   this.ref('game',id);await this.verifySession();
@@ -82,7 +83,7 @@ export class TianRuiCloud {
   this._assertRecorder(name);await this.verifySession();
   if(!validId(operationId))throw new CloudError('操作 ID 不正確。','BAD_ID');
   const payload=clone(data);
-  if(type==='game')validateGame(payload);else if(type==='roster')validateRoster(payload.roster);else if(type==='schedule')validateSchedule(payload);else throw Error('BAD_DOCUMENT');
+  if(type==='game')validateGame(payload);else if(type==='roster')validateRoster(payload.roster);else if(type==='schedule')validateSchedule(payload);else if(type==='planning')validatePlanning(payload);else throw Error('BAD_DOCUMENT');
   // Duplicated immutable audit payload and Firestore's 1 MiB document ceiling.
   // Conservative byte cap leaves metadata overhead; rejection keeps the outbox.
   if(new TextEncoder().encode(JSON.stringify(payload)).length>700000)throw new CloudError('本場資料接近免費後端文件大小上限；草稿已保留，請先下載備份。','DOCUMENT_TOO_LARGE');
@@ -118,16 +119,17 @@ export class TianRuiCloud {
  saveDocument(type,expected,data,name,operation='EDIT',op=crypto.randomUUID()){return this.write(type,type,expected,data,name,operation,op);}
  async exportBackup(){
   if(await this.memberRole()!=='admin')throw new CloudError('只有管理員可建立完整雲端稽核備份。','ADMIN_REQUIRED');
-  const snapshot=async()=>{const [games,roster,schedule]=await Promise.all([this.listGames(),this.getDocument('roster'),this.getDocument('schedule')]);return {games:games.sort((a,b)=>a.game_id.localeCompare(b.game_id)),roster,schedule};};
+  const snapshot=async()=>{const [games,roster,schedule,planning]=await Promise.all([this.listGames(),this.getDocument('roster'),this.getDocument('schedule'),this.getDocument('planning')]);return {games:games.sort((a,b)=>a.game_id.localeCompare(b.game_id)),roster,schedule,planning};};
   const before=await snapshot();
   const audit=await this.call(async()=>(await f.getDocsFromServer(f.collection(this.db,'audit'))).docs.map(s=>({id:s.id,...s.data(),at:s.data().at.toDate().toISOString()})));
   const after=await snapshot();
   if(canonical(before)!==canonical(after))throw new CloudError('備份期間有其他裝置修改，請暫停紀錄後重試。','BACKUP_CHANGED');
-  for(const row of audit){if(row.kind==='game')validateGame(row.payload);else if(row.kind==='roster')validateRoster(row.payload.roster);else validateSchedule(row.payload);}
-  for(const [kind,id,revision] of [...after.games.map(g=>['game',g.game_id,g.revision]),...['roster','schedule'].filter(t=>after[t]).map(t=>[t,t,after[t].revision])]){
+  for(const row of audit){if(row.kind==='game')validateGame(row.payload);else if(row.kind==='roster')validateRoster(row.payload.roster);else if(row.kind==='planning')validatePlanning(row.payload);else validateSchedule(row.payload);}
+  for(const [kind,id,revision] of [...after.games.map(g=>['game',g.game_id,g.revision]),...['roster','schedule','planning'].filter(t=>after[t]).map(t=>[t,t,after[t].revision])]){
    if(!audit.some(a=>a.kind===kind&&a.target===id&&a.after===revision))throw new CloudError('雲端稽核資料不完整，未建立備份。','INCOMPLETE_SNAPSHOT');
   }
   const db={games:after.games.map(g=>g.state),clubRoster:after.roster?.document.roster||[],schedule:after.schedule?.document||{format:'TR-SCHEDULE-1',season:'球隊賽程',games:[]},draft:null,activeId:null,settings:{scale:1,pitchView:'split'},logo:null};
+  if(after.planning)applyPlanning(db,after.planning.document);
   const payload={format:'TR-SECURE-BACKUP-15',exportedAt:new Date().toISOString(),sourceProject:this.url,workspace:{db},serverSnapshot:after,serverAudit:audit};
   return sealArchive(payload);
  }

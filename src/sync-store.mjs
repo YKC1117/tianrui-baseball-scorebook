@@ -1,3 +1,4 @@
+import {planningDocument,validatePlanning,applyPlanning} from './planning-document.mjs';
 import {validateRoster,validateGame,validateSchedule} from './validation.mjs';
 import { CloudError } from './cloud-gateway.mjs';
 const copy = value => structuredClone(value);
@@ -96,9 +97,9 @@ export class SyncStore {
         game.auditTrail=[...(prior?.auditTrail||[]),{operationId,recorder:name,time:this.now(),operation,revisionBefore:expected,revisionAfter:expected+1,events:copy(game.events?.slice(prior?.events?.length||0)||[])}];
         next.pending.push({type:'game',id:game.id,expected,data:copy(game),name,operation:expected===0?'CREATE':operation,operationId});
       }
-      for(const type of ['roster','schedule']) {
-        const before=type==='roster'?{roster:old.clubRoster}:old.schedule;
-        const data=type==='roster'?{roster:incoming.clubRoster}:incoming.schedule;
+      for(const type of ['roster','schedule','planning']) {
+        const before=type==='roster'?{roster:old.clubRoster}:type==='planning'?planningDocument(old):old.schedule;
+        const data=type==='roster'?{roster:incoming.clubRoster}:type==='planning'?planningDocument(incoming):incoming.schedule;
         if (same(before,data)) continue;
         this.cloud._assertRecorder(recorderName);
         if(this.workspace.conflicts.some(c=>c.key===`${type}:${type}`&&!c.resolved)) throw new CloudError('請先處理資料衝突','REVISION_CONFLICT');
@@ -155,16 +156,16 @@ export class SyncStore {
   }
   pull() { return this.run(async()=>{
     this.assertAccount((await this.cloud.verifySession()).id);await this.cloud.memberRole();
-    const [roster,schedule,games]=await Promise.all([this.cloud.getDocument('roster'),this.cloud.getDocument('schedule'),this.cloud.listGames()]);
+    const [roster,schedule,games,planning]=await Promise.all([this.cloud.getDocument('roster'),this.cloud.getDocument('schedule'),this.cloud.listGames(),this.cloud.getDocument('planning')]);
     await this.cloud.memberRole();
-    validateRoster(roster?.document?.roster||[]);if(schedule)validateSchedule(schedule.document);games.forEach(row=>{validateGame(row.state);if(row.state.id!==row.game_id)throw Error('INVALID_GAME_ID');});
+    validateRoster(roster?.document?.roster||[]);if(schedule)validateSchedule(schedule.document);if(planning)validatePlanning(planning.document);games.forEach(row=>{validateGame(row.state);if(row.state.id!==row.game_id)throw Error('INVALID_GAME_ID');});
     const next=copy(this.workspace), pending=new Set(next.pending.map(objectKey));
     if(next.db.games.some(g=>!pending.has(`game:${g.id}`)&&!games.some(row=>row.game_id===g.id)))throw new CloudError('雲端資料不完整，保留目前快取並停止取代','INCOMPLETE_SNAPSHOT');
-    for(const [type,row] of [['roster',roster],['schedule',schedule]])if(!row&&next.revisions[`${type}:${type}`])throw new CloudError('雲端文件不完整，保留目前快取','INCOMPLETE_SNAPSHOT');
-    for(const [type,row] of [['roster',roster],['schedule',schedule]]) if(!pending.has(`${type}:${type}`)) {
+    for(const [type,row] of [['roster',roster],['schedule',schedule],['planning',planning]])if(!row&&next.revisions[`${type}:${type}`])throw new CloudError('雲端文件不完整，保留目前快取','INCOMPLETE_SNAPSHOT');
+    for(const [type,row] of [['roster',roster],['schedule',schedule],['planning',planning]]) if(!pending.has(`${type}:${type}`)) {
       next.revisions[`${type}:${type}`]=row?.revision||0;
       if(type==='roster') next.db.clubRoster=row?.document?.roster||[];
-      else next.db.schedule=row?.document||emptyDb().schedule;
+      else if(type==='planning'){if(row)applyPlanning(next.db,row.document);}else next.db.schedule=row?.document||emptyDb().schedule;
     }
     const local=next.db.games.filter(game=>pending.has(`game:${game.id}`));
     next.db.games=local.concat(games.filter(row=>!pending.has(`game:${row.game_id}`)).map(row=>row.state));
@@ -185,7 +186,7 @@ export class SyncStore {
   resolve(key, name, keepBoth=false) { return this.run(async()=>{
     this.cloud._assertRecorder(name);
     const remote=key.startsWith('game:')?await this.cloud.getGame(key.slice(5)):await this.cloud.getDocument(key.split(':')[0]);
-    if(remote){if(key.startsWith('game:'))validateGame(remote.state);else if(key==='roster:roster')validateRoster(remote.document.roster);else validateSchedule(remote.document);}
+    if(remote){if(key.startsWith('game:'))validateGame(remote.state);else if(key==='roster:roster')validateRoster(remote.document.roster);else if(key==='planning:planning')validatePlanning(remote.document);else validateSchedule(remote.document);}
     const next=copy(this.workspace), ops=next.pending.filter(op=>objectKey(op)===key);
     if (!ops.length) throw new Error('NO_CONFLICT_DRAFT');
     const draft=ops.at(-1).data;
@@ -201,7 +202,7 @@ export class SyncStore {
         next.pending.push({type:'game',id,expected:0,data:game,name,operation:'CREATE',operationId:this.uuid()});
       }
     } else if(key==='roster:roster') next.db.clubRoster=remote?.document?.roster||[];
-    else next.db.schedule=remote?.document||emptyDb().schedule;
+    else if(key==='planning:planning')applyPlanning(next.db,remote?.document||planningDocument(emptyDb()));else next.db.schedule=remote?.document||emptyDb().schedule;
     await this.persist(next); return this.db;
   }); }
 }

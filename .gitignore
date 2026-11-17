@@ -19,3 +19,7 @@ dist-ui/
 test-results-ui/
 
 node_modules
+
+dist-integrated/
+test-results-integrated/
+.private/

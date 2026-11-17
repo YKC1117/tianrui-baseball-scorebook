@@ -117,3 +117,8 @@ test('an old account workspace cannot flush its drafts under a new account sessi
  engine.accountId='original-account';engine.cloud.verifySession=async()=>({id:'different-account'});
  await assert.rejects(()=>engine.flush(),e=>e.code==='ACCOUNT_CHANGED');assert.equal(engine.pendingCount,1);assert.equal(backend.audit.length,0);
 });
+test('shared match planning uses CAS, survives reconnect conflict and preserves archived drafts',async()=>{
+ const backend=new Backend(),a=(await setup(backend)).engine,b=(await setup(backend)).engine;
+ let db=a.db;db.draft={selected:['p0','p1'],lineup:['p0','p1'],positions:{p0:'DH',p1:'C'},guests:[],useDH:true,pitcherId:'p9',scheduleId:'match1'};db.scheduleDrafts={match1:structuredClone(db.draft)};await a.commit(db,'排陣甲');await a.flush();await b.pull();assert.deepEqual(b.db.draft,db.draft);
+ const stale=a.db,updated=b.db;updated.draft.selected.push('p2');updated.scheduleDrafts.match1=structuredClone(updated.draft);await b.commit(updated,'排陣乙');await b.flush();stale.draft.selected.push('p3');await a.commit(stale,'離線甲');await a.flush();assert.match(a.status,/版本衝突/);assert.equal(a.pendingCount,1);assert.ok(JSON.parse(a.backup()).workspace.pending[0].data.draft.selected.includes('p3'));await a.resolve('planning:planning','核對甲');assert.ok(a.db.draft.selected.includes('p2'));assert.equal(a.workspace.conflicts[0].archivedOperations[0].data.draft.selected.includes('p3'),true);
+});
