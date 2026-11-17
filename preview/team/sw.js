@@ -1,4 +1,4 @@
-const PREFIX='tianrui-integrated:'+new URL('.',self.location.href).pathname+':';const VERSION=PREFIX+'d04ae1a75e7fae3a';
+const PREFIX='tianrui-integrated:'+new URL('.',self.location.href).pathname+':';const VERSION=PREFIX+'9ee5e0b1752189c4';
 const urls=['./','./index.html','./config.mjs','./manifest.webmanifest','./icon-192.png','./icon-512.png','./firebase.mjs.LEGAL.txt'].map(p=>new URL(p,self.location.href).href),allowed=new Set(urls);
 self.addEventListener('install',e=>e.waitUntil(caches.open(VERSION).then(c=>c.addAll(urls)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
