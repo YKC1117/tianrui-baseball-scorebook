@@ -1,8 +1,9 @@
+import {canonicalJSON} from './json-data.mjs';
 import {planningDocument,validatePlanning,applyPlanning} from './planning-document.mjs';
 import {validateRoster,validateGame,validateSchedule} from './validation.mjs';
 import { CloudError } from './cloud-gateway.mjs';
 const copy = value => structuredClone(value);
-const same = (a,b) => JSON.stringify(a) === JSON.stringify(b);
+const same = (a,b) => canonicalJSON(a) === canonicalJSON(b);
 const sameGame = (a,b) => a && same({...a,auditTrail:null},{...b,auditTrail:null});
 const objectKey = op => `${op.type}:${op.id}`;
 const emptyDb = () => ({ games: [], clubRoster: [], schedule: {format:'TR-SCHEDULE-1',season:'球隊賽程',games:[]}, activeId:null, draft:null, settings:{scale:1,pitchView:'split'}, logo:null });

@@ -1,3 +1,4 @@
+import {canonicalJSON} from './json-data.mjs';
 // Standard DH only (OBR 5.11); two-way-player exceptions are deliberately not inferred.
 export const defenseCodes=['P','C','B1','B2','B3','SS','LF','CF','RF'];
 const clone=value=>structuredClone(value);
@@ -76,8 +77,8 @@ export function proposeDefense(team,defense,pitcherSlot=null){
  validateTeamDH(next);return {team:next,reason,pitcherChanged:false};
 }
 export const canAttemptUncaught=game=>!game.bases[0]||game.outs===2;
-export function scoringToken(game){return JSON.stringify([game.inning,game.half,game.outs,game.bases,game.balls,game.strikes,game.score,game.finished,...['away','home'].map(k=>[game[k].next,game[k].pitcher]),game.events.filter(e=>!['recorder','audit'].includes(e.kind)).at(-1)?.id]);}
-export function canCorrectStrikeout(game){return !!game.pendingThirdStrike&&game.pendingThirdStrike.appliedToken===scoringToken(game);}
+export function scoringToken(game){return canonicalJSON([game.inning,game.half,game.outs,game.bases,game.balls,game.strikes,game.score,game.finished,...['away','home'].map(k=>[game[k].next,game[k].pitcher]),game.events.filter(e=>!['recorder','audit'].includes(e.kind)).at(-1)?.id]);}
+export function canCorrectStrikeout(game){try{return !!game.pendingThirdStrike&&canonicalJSON(JSON.parse(game.pendingThirdStrike.appliedToken))===scoringToken(game);}catch{return false;}}
 export function capturePlateState(game){
  const atkKey=game.half==='top'?'away':'home',defKey=atkKey==='away'?'home':'away',atk=game[atkKey],def=game[defKey],batterId=atk.lineup[atk.next],runners=game.bases.filter(Boolean),batIds=[batterId,...runners.map(r=>r.pid)],pitchIds=[def.pitcher,...runners.map(r=>r.charge)];
  return {atkKey,defKey,batterId,eventCutoff:game.events.length,state:clone(Object.fromEntries(['inning','half','outs','bases','balls','strikes','score','finished','completedAt','halfNotice'].map(key=>[key,game[key]??null]))),next:atk.next,batting:Object.fromEntries([...new Set(batIds)].map(id=>[id,clone(atk.stats[id]||null)])),pitching:Object.fromEntries([...new Set(pitchIds)].map(id=>[id,clone(def.pitchStats[id]||null)])),sessions:Object.fromEntries((def.pitchSessions||[]).map(session=>[session.id,clone(session.stats)]))};
