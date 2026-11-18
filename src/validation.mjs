@@ -33,6 +33,27 @@ export function validateSchedule(schedule){
  for(const game of schedule.games){
   if(!record(game)||!validId(game.id)||ids.has(game.id)||typeof game.opponent!=='string'||!game.opponent.trim()||!/^\d{4}-\d{2}-\d{2}$/.test(game.date)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(game.time)||!['scheduled','postponed','cancelled','completed'].includes(game.status))throw Error('賽程日期、時間、對手或狀態不正確');
   const date=new Date(game.date+'T00:00:00Z');if(!Number.isFinite(date.getTime())||date.toISOString().slice(0,10)!==game.date)throw Error('賽程日期不正確');
+
+  if(game.result!==undefined){
+   const result=game.result;
+   if(!record(result)||!Number.isInteger(result.teamRuns)||!Number.isInteger(result.opponentRuns)||result.teamRuns<0||result.opponentRuns<0||result.teamRuns>200||result.opponentRuns>200)throw Error('賽果比分必須為 0～200 的整數');
+   for(const key of ['teamHits','opponentHits','teamErrors','opponentErrors'])if(result[key]!=null&&(!Number.isInteger(result[key])||result[key]<0||result[key]>200))throw Error('賽果安打與失誤必須為非負整數');
+   if(!Array.isArray(result.batting)||!Array.isArray(result.pitching)||result.batting.length>60||result.pitching.length>60)throw Error('球員賽果成績格式不正確');
+   if(typeof result.notes!=='string'||result.notes.length>500||typeof result.recordedAt!=='string'||!Number.isFinite(Date.parse(result.recordedAt)))throw Error('賽果備註或紀錄時間無效');
+   for(const [type,list] of [['batting',result.batting],['pitching',result.pitching]]){
+    const used=new Set();
+    for(const row of list){
+     if(!record(row)||!validId(row.playerId)||used.has(row.playerId))throw Error('球員成績有重複或無效 ID');
+     used.add(row.playerId);
+     for(const [key,v] of Object.entries(row)){
+      if(key==='playerId')continue;
+      if(type==='pitching'&&key==='IP'){if(typeof v!=='string'||!/^\d{1,2}(?:\.[012])?$/.test(v))throw Error('投球局數格式不正確');continue;}
+      if(!(type==='batting'?['AB','H','R','RBI','BB','SO']:['H','ER','BB','SO']).includes(key)||!Number.isInteger(v)||v<0||v>200)throw Error('球員成績必須是非負整數');
+     }
+     if(type==='batting'&&row.AB!=null&&row.H!=null&&row.H>row.AB)throw Error('球員安打不可大於打數');
+    }
+   }
+  }
   ids.add(game.id);
  }
  return schedule;
