@@ -1,0 +1,23 @@
+{
+  "name": "tianrui-baseball-scorebook",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "test:db": "node tests/database.mjs",
+    "test:browser": "playwright test",
+    "serve": "python3 -m http.server 4173 --bind 127.0.0.1",
+    "test:local": "node tests/local-integration.mjs",
+    "privacy:inventory": "node scripts/privacy-inventory.mjs",
+    "preflight:supabase": "node scripts/preflight.mjs",
+    "build:ui-preview": "node scripts/build-ui-preview.mjs",
+    "test:ui": "npm run build:ui-preview && playwright test --config playwright.ui.config.mjs",
+    "build:drive": "node scripts/build-drive.mjs",
+    "build:release": "node scripts/build-drive.mjs --release",
+    "test:drive:browser": "npm run build:drive && playwright test --config playwright.drive.config.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.65.0",
+    "esbuild": "0.28.2"
+  }
+}

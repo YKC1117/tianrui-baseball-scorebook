@@ -1,0 +1,10 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {"collectionGroup":"games","fieldPath":"payload","indexes":[]},
+    {"collectionGroup":"team","fieldPath":"payload","indexes":[]},
+    {"collectionGroup":"audit","fieldPath":"payload","indexes":[]},
+    {"collectionGroup":"leases","fieldPath":"token","indexes":[]},
+    {"collectionGroup":"proofs","fieldPath":"token","indexes":[]}
+  ]
+}
