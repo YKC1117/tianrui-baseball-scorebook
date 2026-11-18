@@ -199,7 +199,7 @@ async function saveManualResult(id) {
  result={teamRuns:get('manualTeamRuns',true),opponentRuns:get('manualOpponentRuns',true),teamHits:get('manualTeamHits'),opponentHits:get('manualOpponentHits'),teamErrors:get('manualTeamErrors'),opponentErrors:get('manualOpponentErrors'),batting,pitching,notes:document.getElementById('manualResultNotes').value.trim(),recordedAt:new Date().toISOString()};
  }catch(error){alertText(error.message);return;}
  if(!await onGuard('schedule'))return;
- match.result=result;match.status='completed';match.notes=match.notes.replace('；過往場次的實際賽果未提供，尚未標記完賽','');modal=null;write();
+ match.result=result;match.status='completed';match.notes=(match.notes||'').replace('；過往場次的實際賽果未提供，尚未標記完賽','');modal=null;write();
 }
 function halfLabel(state){return `第 ${state.inning} 局${state.half==='top'?'上':'下'}半`;}
 function halfBanner(){const notice=g()?.halfNotice;if(tab!=='record'||!notice||notice.dismissed)return '';return `<aside class="halfChangeNotice" role="status" aria-live="polite"><div><strong>${notice.finished?'比賽結束':'攻守互換'}</strong><p>${esc(halfLabel(notice.from))}結束${notice.finished?'・本場已結束':` → 已進入${esc(halfLabel(notice.to))}`}</p></div><button class="btn" id="dismissHalfNotice">知道了</button></aside>`;}
