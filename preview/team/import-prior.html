@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>天睿棒球｜既有資料匯入</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#142c46;background:#f4f7fa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh}
+header{background:#122b45;color:white;padding:22px max(20px,calc((100vw - 720px)/2))}
+main{max-width:740px;margin:30px auto;padding:0 18px}
+h1{font-size:26px;margin:0 0 9px}h2{font-size:19px}
+p{line-height:1.65}.panel{padding:24px;background:white;border:1px solid #d7e1eb;border-radius:16px}
+.small{color:#5f7080;font-size:14px}
+button,.link{border-radius:12px;font-size:17px;font-weight:700;padding:15px 19px;border:1px solid #122b45;cursor:pointer}
+button{width:100%;background:#143656;color:white;min-height:54px}button:disabled{opacity:.5;cursor:wait}
+.link{display:block;text-decoration:none;text-align:center;color:#143656;background:white;margin-top:15px}
+#status{padding:14px 0;white-space:pre-line;min-height:56px}#status[data-error=true]{color:#aa2637}
+</style>
+</head>
+<body>
+<header><strong>天睿棒球｜原始資料匯入</strong></header>
+<main><div class="panel">
+<h1>匯入先前提供的球隊資料</h1>
+<p>已找回原始球員名單 <b>20 人</b>及原始賽程 <b>10 場</b>，匯入檔已存於你的私人 Google Drive「天睿棒球專用 / backups」。</p>
+<p>本頁不公開名單、不刪除或覆蓋既有比賽紀錄。Google 必須由你授權存取匯入檔，才能把資料寫成天睿網站辨識的正式版本。</p>
+<button id="start" disabled>正在載入 Google 授權工具…</button>
+<div id="status" role="status" aria-live="polite"></div>
+<a class="link" href="./">返回天睿棒球網站</a>
+<p class="small">僅使用 Google 官方登入、Picker 與 Drive API；密碼不會傳入本站。若已有球員或賽程版本，將保留原資料，不自行覆蓋。</p>
+</div></main>
+<script type="module">
+import {driveConfig} from "./drive-config.mjs";
+const folderId="1V88dqmuLbaVOe-YYlydegF7VRdPDAc2W";
+const backupDirId="1TUh3XmnleFDmnCb4AfT0GGXukqiJW83f";
+const backupFileId="1oTcUsJYKsbiM_yZFKSy-UaKli7kzXeKE";
+const manifestId="1Pn-6oKTF4kR-IcJyHCJX4Ye6Bf1aai9X";
+const scope="https://www.googleapis.com/auth/drive.file";
+const trApp="tianrui-drive-v1";
+const button=document.getElementById("start"),status=document.getElementById("status");
+let token=null,settings=null;
+const say=(message,error=false)=>{status.textContent=message;status.dataset.error=String(error)};
+function loadScript(src){return new Promise((ok,fail)=>{const s=document.createElement("script");s.async=true;s.src=src;s.onload=ok;s.onerror=()=>fail(new Error("Google 授權元件載入失敗"));document.head.append(s)})}
+async function ready(){
+ if(!driveConfig?.clientId||!driveConfig?.apiKey||!driveConfig?.appId)throw Error("網站公開 Google 設定尚未完成");
+ settings=driveConfig;
+ await Promise.all([loadScript("https://accounts.google.com/gsi/client"),loadScript("https://apis.google.com/js/api.js")]);
+ await new Promise((ok,fail)=>gapi.load("picker",{callback:ok,onerror:()=>fail(new Error("Google Picker 載入失敗")),timeout:18000,ontimeout:()=>fail(new Error("Google Picker 逾時"))}));
+ button.textContent="使用 Google 授權並匯入資料";button.disabled=false;
+}
+function authorize(){return new Promise((ok,fail)=>{
+ const client=google.accounts.oauth2.initTokenClient({client_id:settings.clientId,scope,include_granted_scopes:false,callback:result=>{
+  if(result.error||!result.access_token)return fail(Error("Google 授權未完成"));
+  token=result.access_token;ok();
+ },error_callback:()=>fail(Error("Google 授權視窗被取消或拒絕"))});
+ client.requestAccessToken({prompt:"select_account"});
+})}
+function chooseBackup(){return new Promise((ok,fail)=>{
+ const view=new google.picker.DocsView(google.picker.ViewId.DOCS).setIncludeFolders(true).setSelectFolderEnabled(false).setMimeTypes("application/json").setParent(backupDirId);
+ const picker=new google.picker.PickerBuilder().setDeveloperKey(settings.apiKey).setAppId(settings.appId).setOAuthToken(token).setOrigin(location.origin).addView(view).setTitle("請選擇「天睿_正式球員名單與賽程_網站匯入檔.json」").setCallback(data=>{
+  if(data.action===google.picker.Action.PICKED){picker.setVisible(false);const x=data.docs?.[0];if(!x)return fail(Error("未選擇匯入檔"));if(x.id!==backupFileId)return fail(Error("選到其他檔案。請選擇原始名單與賽程匯入檔。"));ok(x.id)}
+  else if(data.action===google.picker.Action.CANCEL){picker.setVisible(false);fail(Error("尚未授權匯入檔，原資料不變"))}
+ }).build();
+ picker.setVisible(true)
+})}
+async function drive(path,{method="GET",body=null,headers={},query={}}={}){
+ const u=new URL("https://www.googleapis.com/"+path);for(const [k,v] of Object.entries(query))u.searchParams.set(k,String(v));
+ const r=await fetch(u,{method,body,headers:{Authorization:"Bearer "+token,...headers},cache:"no-store"});
+ const txt=await r.text();if(!r.ok)throw Error("Google Drive 回應 "+r.status+"；"+txt.slice(0,200));
+ try{return JSON.parse(txt)}catch{throw Error("Drive 回傳非 JSON 資料")}
+}
+const canonical=value=>JSON.stringify(value,(_key,item)=>item&&typeof item==="object"&&!Array.isArray(item)?Object.fromEntries(Object.entries(item).sort(([a],[b])=>a<b?-1:a>b?1:0)):item);
+async function hash(value){const bytes=new TextEncoder().encode(canonical(value)),digest=await crypto.subtle.digest("SHA-256",bytes);return [...new Uint8Array(digest)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+async function append(key,data,actor){
+ const id=crypto.randomUUID(),time=new Date().toISOString(),recorder="原始資料匯入";
+ const value={format:"TR-DRIVE-REVISION-1",id,key,parents:[],data,actor,recorder,holder:"prior_import_"+crypto.randomUUID(),time,operation:"IMPORT",operations:[{id:crypto.randomUUID(),recorder,time,changes:[]}]};
+ const record={...value,sha256:await hash(value)};
+ const metadata={name:key+"__"+id+".json",parents:[backupDirId],mimeType:"application/json",appProperties:{trApp,trKind:"revision",trKey:key,trRevision:id}};
+ const boundary="tr_"+crypto.randomUUID().replaceAll("-","");
+ const body="--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(metadata)+"\r\n--"+boundary+"\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n"+JSON.stringify(record)+"\r\n--"+boundary+"--";
+ return drive("upload/drive/v3/files",{method:"POST",body,headers:{"Content-Type":"multipart/related; boundary="+boundary},query:{uploadType:"multipart",supportsAllDrives:true,fields:"id,name,appProperties"}})
+}
+function checkData(data){
+ if(!Array.isArray(data.clubRoster)||data.clubRoster.length!==20)throw Error("匯入檔中的球員名單不是原始 20 人，已停止");
+ if(!data.schedule||data.schedule.format!=="TR-SCHEDULE-1"||!Array.isArray(data.schedule.games)||data.schedule.games.length!==10)throw Error("匯入檔中的賽程不是原始 10 場，已停止");
+ if(!Array.isArray(data.games)||data.games.length!==0)throw Error("匯入檔不應含未確認的比賽成績");
+ if(new Set(data.clubRoster.map(x=>x.id)).size!==20||new Set(data.schedule.games.map(x=>x.id)).size!==10)throw Error("匯入檔有重複 ID");
+}
+async function execute(){
+ button.disabled=true;try{
+ say("正在取得 Google 授權…");await authorize();
+ say("請在 Google 選檔器點選已存入 backups 的原始資料檔…");await chooseBackup();
+ say("檢查隊伍資料夾與資料版本…");
+ const folder=await drive("drive/v3/files/"+folderId,{query:{fields:"id,mimeType,capabilities(canEdit),trashed"}});
+ if(folder.trashed||folder.mimeType!=="application/vnd.google-apps.folder"||!folder.capabilities?.canEdit)throw Error("此 Google 帳號無權編輯天睿球隊資料夾");
+ const perms=await drive("drive/v3/files/"+folderId+"/permissions",{query:{fields:"nextPageToken,permissions(type,role,deleted)",pageSize:100}});
+ if(perms.nextPageToken||perms.permissions?.some(p=>!p.deleted&&p.type==="anyone"))throw Error("資料夾仍有公開連結存取權，請先改為限制");
+ const entry=await drive("drive/v3/files/"+manifestId,{query:{alt:"media"}});
+ if(entry.format!=="TR-DRIVE-TEAM-1"||entry.folderId!==folderId||entry.backups!==backupDirId)throw Error("不是正確的天睿 Google Drive 隊伍入口");
+ const data=await drive("drive/v3/files/"+backupFileId,{query:{alt:"media"}});checkData(data);
+ const list=await drive("drive/v3/files",{query:{q:"'"+backupDirId+"' in parents and trashed = false",fields:"nextPageToken,incompleteSearch,files(id,name,appProperties)",pageSize:1000}});
+ if(list.nextPageToken||list.incompleteSearch)throw Error("Drive 資料清單不完整，不能安全匯入");
+ const revisions=list.files.filter(f=>f.appProperties?.trApp===trApp&&f.appProperties?.trKind==="revision");
+ const keys=new Set(revisions.map(x=>x.appProperties.trKey));
+ const about=await drive("drive/v3/about",{query:{fields:"user(permissionId)"}});
+ if(!about.user?.permissionId)throw Error("Google 帳號驗證不完整");
+ let created=[];
+ for(const [key,value] of [["roster",data.clubRoster],["schedule",data.schedule]]){
+  if(keys.has(key))continue;
+  await append(key,value,about.user.permissionId);created.push(key)
+ }
+ say(created.length?"已匯入 Google Drive：20 位球員、10 場賽程。\n請返回天睿棒球網站，按「重新讀取」查看。":"Google Drive 已有名單與賽程版本，未覆寫任何原始資料。");
+ }catch(e){say("未完成："+(e?.message||e)+"\n已建立的檔案不會被覆寫。",true)}
+ finally{button.disabled=false;button.textContent="重新檢查／匯入"}
+}
+button.addEventListener("click",execute);
+ready().catch(e=>say(e.message,true));
+</script>
+</body>
+</html>
