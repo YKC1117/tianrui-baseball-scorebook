@@ -1,5 +1,7 @@
 # 天睿整合版：一次性 Firebase 設定
 
+> **已取消（2026-11-18）：** 此為舊工程回復紀錄，不要執行下列 Firebase／CLI 流程。現行候選改用 [Google Drive 瀏覽器設定](GOOGLE_DRIVE_SETUP.html)，不要求公司電腦指令。
+
 已知專案 `tianrui-baseball` 已建立、Email/Password 已啟用。不必建立新專案、新 Gmail、其他服務或付款方式。本環境沒有 Firebase CLI 授權；工程不能代替擁有者寫入遠端，也不能以模擬器結果宣稱已上線。
 
 ## 擁有者只需完成這一次

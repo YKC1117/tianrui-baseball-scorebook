@@ -1,166 +1,88 @@
-import {canonicalJSON} from './json-data.mjs';
-import {cloudConfig} from './config.mjs';
-import {TianRuiCloud} from './firebase-gateway.mjs';
+import {driveConfig} from './drive-config.mjs';
+import {DriveAuth} from './drive-auth.mjs';
+import {DriveAPI,publicDriveConfig,DriveError} from './drive-api.mjs';
+import {DriveWorkspace,DriveFolder,documents} from './drive-workspace.mjs';
 import {WorkspaceStore} from './workspace-store.mjs';
-import {SyncStore} from './sync-store.mjs';
 import {mountScorebook} from './scorebook.mjs';
-import {normalizeConfig} from './quick-scoring.mjs';
-import {normalizePlanningState} from './lineup-planning.mjs';
-import {planningDocument} from './planning-document.mjs';
-import {RECORDER_EMAIL,validatePublicConfig} from './login-config.mjs';
-import {parseBackup,validateGame,validateRoster} from './validation.mjs';
-import {decodeArchive} from './backup-integrity.mjs';
-const el=id=>document.getElementById(id);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-let cloud,engine,ui,documentRecorder='',role,releaseLock,activeLockKey,syncBusy=false;let loginRole='recorder';
-function download(data,name) {
- const url=URL.createObjectURL(new Blob([data],{type:'application/json'}));
- const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
-}
-function gate(message='隊友選擇球隊紀錄，只需輸入共用密碼。') {
- el('modalhost').replaceChildren();
- el('app').innerHTML=`<section class="card loginCard"><h1>天睿球隊登入</h1><p id="authMessage" role="status">${esc(message)}</p>${cloud?`<div class="tabs"><button class="btn ${loginRole==='recorder'?'sel':''}" id="recorderLogin">球隊紀錄</button><button class="btn ${loginRole==='admin'?'sel':''}" id="adminLogin">管理員</button></div><form id="loginForm">${loginRole==='admin'?'<div class="field"><label for="account">管理員帳號</label><input id="account" type="email" required autocomplete="username"></div>':''}<div class="field"><label for="password">${loginRole==='admin'?'管理員':'球隊共用'}密碼</label><input id="password" type="password" required autocomplete="current-password"></div><button class="btn orange" id="login">登入</button></form>`:''}<p class="small muted">帳號由管理員建立。開始、繼續或接手比賽時必須填寫紀錄人員姓名。</p><button class="btn" id="legacyDownload">下載此裝置舊版完整備份</button>${engine?'<button class="btn" id="emergencyBackup">下載待同步工作區備份</button>':''}</section>`;
- for(const [id,value] of [['recorderLogin','recorder'],['adminLogin','admin']])if(el(id))el(id).onclick=()=>{loginRole=value;gate();};
- el('legacyDownload').onclick=()=>{const raw=localStorage.getItem('TR_BASEBALL_OFFLINE_V1');if(raw)download(raw,'tianrui-legacy-backup.json');else alert('此裝置沒有舊版資料。');};
- if(el('emergencyBackup'))el('emergencyBackup').onclick=()=>download(backup(),'tianrui-workspace-backup.json');
- if(el('loginForm'))el('loginForm').onsubmit=async event=>{
-  event.preventDefault();el('login').disabled=true;const password=el('password').value;el('password').value='';
-  try {await cloud.signIn(loginRole==='recorder'?RECORDER_EMAIL:el('account').value,password);await start();}
-  catch(error){gate(error.message);}
- };
-}
-async function askName() {
- const name=prompt('請填寫此次操作的紀錄人員姓名（最多 32 字）：');
- if(name===null)return null;cloud._assertRecorder(name);return name.trim();
-}
-function backup(){const value=JSON.parse(engine.backup());if(ui?.getState)value.unsavedUi=ui.getState();return JSON.stringify(value,null,2);}
-function panel(){return `<section class="notice blue syncPanel" aria-label="同步狀態"><div class="syncSummary"><span id="syncStatus" role="status"></span><button class="btn" id="syncNow">同步</button></div><details id="accountTools"><summary>紀錄權與備份</summary><p class="small" id="lastCloudSync"></p><div class="row"><button class="btn" id="releaseRecording">交出紀錄權</button><button class="btn" id="allBackup">完整備份</button>${role==='admin'?'<button class="btn" id="cloudBackup">雲端稽核備份</button>':''}<button class="btn" id="importLegacy">匯入舊版／還原備份</button><button class="btn" id="logout">登出</button></div></details><div id="conflictActions"></div></section>`;}
+import {canonicalJSON} from './json-data.mjs';
+import {parseBackup} from './validation.mjs';
+import {decodeArchive,sealArchive} from './backup-integrity.mjs';
+import demoData from '../preview/demo-data.json' with {type:'json'};
+
+const el=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const CONFIG_KEY='TR_DRIVE_PUBLIC_CONFIG_V1',BINDING_KEY='TR_DRIVE_LAST_BINDING_V1';
+let engine,ui,auth,authLoaded=false,authLoading=false,folderInfo=null,account=null,busy=false,isDemo=false,documentRecorder='',releaseLock=null,lockKey=null,previousLocal=null;
+let config=driveConfig;try{config=JSON.parse(localStorage.getItem(CONFIG_KEY)||'null')||config;}catch{}
+function download(text,name){const url=URL.createObjectURL(new Blob([text],{type:'application/json'})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);}
+async function archive(){await ui?.settled();return sealArchive({...engine.backup(),unsavedUi:ui?.getState()},'TR-DRIVE-ARCHIVE-1');}
+async function backup(name='天睿_完整備份.json'){download(await archive(),name);}
+function failure(error){engine.status=error.message;updateStatus();}
+function apiForSession(){const owner=auth,epoch=owner.epoch;return new DriveAPI({getToken:()=>owner.epoch===epoch?owner.getToken():null});}
+function panel(){return `<section class="notice blue syncPanel drivePanel" aria-label="Google Drive 狀態"><div class="syncSummary"><span id="syncStatus" role="status"></span><button class="btn" id="driveSave">${engine.folder?'儲存到 Drive':'Drive 與備份'}</button></div><details id="driveTools"><summary>連線、紀錄權與備份</summary><p id="driveFolder" class="small"></p><p class="small">單人記分／其他人查看。多人同時開始可能產生衝突；版本檔保留，不覆蓋舊紀錄。查看者按「重新讀取」取得更新。</p><div class="row"><button class="btn primary" id="driveConnect">連接 Google Drive</button><button class="btn" id="driveRefresh">重新讀取</button><button class="btn" id="driveRelease">交出紀錄</button><button class="btn" id="driveBackup">下載完整備份</button><button class="btn" id="driveCloudBackup">另存 Drive 備份</button><button class="btn" id="driveImport">匯入／還原備份</button><button class="btn" id="driveSettings">Google 連線設定</button><button class="btn" id="driveGrant">授權既有資料檔</button><button class="btn" id="driveLocal">${isDemo?'離開範例，使用我的球隊':'返回本機／中斷連線'}</button><button class="btn" id="driveDemo">操作模擬範例</button><button class="btn" id="driveLegacy">下載舊版本機備份</button></div></details><div id="driveConflicts"></div></section>`;}
 function updateStatus(){
- if(el('syncStatus'))el('syncStatus').textContent=`${role==='admin'?'管理員':'共用紀錄帳號'} · ${engine.status} · 待同步 ${engine.pendingCount} 筆`;
- if(el('lastCloudSync'))el('lastCloudSync').textContent='最後雲端同步：'+(engine.workspace.lastSuccess?new Date(engine.workspace.lastSuccess).toLocaleString('zh-TW'):'尚無');
- if(el('conflictActions')){
-  el('conflictActions').replaceChildren();
-  for(const c of engine.workspace.conflicts.filter(c=>!c.resolved)){
-   const row=document.createElement('p'),label=document.createElement('span');label.textContent=`${c.key.startsWith('game:')?'比賽':c.key.startsWith('planning:')?'排陣':'名冊／賽程'}版本衝突：`;
-   row.append(label);
-   for(const [keep,text] of [[true,'保留兩份（比賽另存）'],[false,'備份草稿並採用雲端']]){
-    if(keep&&!c.key.startsWith('game:'))continue;
-    const b=document.createElement('button');b.className='btn small';b.textContent=text;
-    b.onclick=async()=>{try{const name=await askName();if(!name)return;download(backup(),'tianrui-conflict-backup.json');await ui.settled();ui.replace(await engine.resolve(c.key,name,keep));updateStatus();}catch(e){alert(e.message);}};
-    row.append(b);
-   }
-   el('conflictActions').append(row);
-  }
- }
+ if(!engine)return;if(el('syncStatus'))el('syncStatus').textContent=isDemo?'模擬範例・只保存在此裝置，未連接 Drive':`${!navigator.onLine?'離線・':''}${engine.status}${engine.folder?'・待存 '+engine.pendingCount+' 筆':''}`;
+ if(el('driveFolder'))el('driveFolder').textContent=folderInfo?`資料夾：${folderInfo.name} · ${engine.folder&&auth?.getToken()?account?.displayName||'已授權帳號':'本機快取，需重新授權'} · ${engine.folder?(folderInfo.canEdit?'可編輯':'唯讀'):'遠端權限尚未核對'} · 最後核對：${engine.workspace.lastSuccess?new Date(engine.workspace.lastSuccess).toLocaleString('zh-TW'):'尚無'}`:'目前為本機資料；尚未綁定 Google Drive 共用資料夾。';
+ if(el('driveConnect'))el('driveConnect').disabled=busy||authLoading;
+ const host=el('driveConflicts');if(!host)return;host.replaceChildren();for(const c of engine.conflicts){const row=document.createElement('div');row.className='notice red';const label=document.createElement('p');label.textContent=(c.key.startsWith('game:')?'比賽':c.key==='roster'?'名冊':c.key==='schedule'?'賽程':'排陣')+'版本衝突：本機與所有遠端版本保留，請下載備份後選擇。';row.append(label);for(const h of c.heads){const b=document.createElement('button');b.className='btn';b.textContent=`採用 ${h.recorder}・${new Date(h.time).toLocaleString('zh-TW')} 的版本`;b.onclick=()=>exclusive(async()=>{await backup('天睿_衝突處理前備份.json');const name=askName();if(name)ui.replace(await engine.resolve(c.key,h.id,name));});row.append(b);}host.append(row);}
 }
-async function start(){
- const approvalKey=`TR_APPROVED_V15:${cloud.url}`;
- let user;
- try {
-  user=await cloud.verifySession();role=await cloud.memberRole();
-  if(!['admin','recorder'].includes(role))throw Error('未核准角色');
-  sessionStorage.setItem(approvalKey,JSON.stringify({id:user.id,role}));
- }catch(error){
-  const approved=JSON.parse(sessionStorage.getItem(approvalKey)||'null');
-  if(error.code!=='OFFLINE'||!approved||approved.id!==cloud.session?.user_id||Date.now()>=cloud.expiresAt)throw error;
-  user={id:approved.id};role=approved.role;
- }
- documentRecorder='';
- const key=`${cloud.url}:${user.id}`;
- if(activeLockKey&&activeLockKey!==key){releaseLock?.();releaseLock=null;}activeLockKey=key;
- if(!navigator.locks)throw Error('此瀏覽器不支援安全分頁鎖，請更新瀏覽器後再使用。');
- if(!releaseLock){
-  const locked=await new Promise(resolve=>{navigator.locks.request(`TR_WORKSPACE:${key}`,{ifAvailable:true},async lock=>{resolve(Boolean(lock));if(lock)await new Promise(release=>{releaseLock=release;});});});
-  if(!locked)throw Error('同一瀏覽器已有開啟中的紀錄分頁，請回到該分頁操作。');
- }
- const holderKey=`TR_HOLDER_V15:${key}`;let holderToken=sessionStorage.getItem(holderKey);if(!holderToken){holderToken=crypto.randomUUID();sessionStorage.setItem(holderKey,holderToken);}
- engine=await new SyncStore({cloud,repository:new WorkspaceStore(key),holderToken,accountId:user.id}).open();
- if(navigator.onLine){try{await engine.flush();await engine.pull();}catch(error){if(error.code!=='OFFLINE'||!engine.workspace.lastSuccess)throw error;engine.status='離線待同步；目前顯示快取資料';}}
- else if(!engine.workspace.lastSuccess)throw Error('首次登入必須連網下載資料。');
- else engine.status='離線待同步；目前顯示快取資料';
- const currentEngine=engine;let mounted;
- const cached=engine.db;validateRoster(cached.clubRoster);cached.games.forEach(validateGame);
- const onError=error=>{if(engine!==currentEngine)return;currentEngine.status=error.message;updateStatus();};
- const onSave=async (db,ticket)=>{
-  const stored=currentEngine.db;
-  // Read-only stat rendering can normalize legacy pitching fields. Persist only
-  // games for which this page has explicitly entered a recording session.
-  db=normalizePlanningState(db);
-  db.games=db.games.map(game=>ticket?.gameId===game.id?game:stored.games.find(g=>g.id===game.id)||game);
-  validateRoster(db.clubRoster);db.games.forEach(validateGame);
-  for(const game of db.games)if(game.logo)delete game.logo;
-  if(!documentRecorder&&(canonicalJSON(db.clubRoster)!==canonicalJSON(stored.clubRoster)||canonicalJSON(db.schedule)!==canonicalJSON(stored.schedule)||canonicalJSON(planningDocument(db))!==canonicalJSON(planningDocument(stored))))documentRecorder=await askName();
-  await currentEngine.commit(db,documentRecorder,'EDIT',false,ticket);updateStatus();
-  void currentEngine.flush().catch(onError);return currentEngine.db;
- };
- mounted=mountScorebook({initialDb:currentEngine.db,onSave,onError,securityPanel:panel,
-  onCapture:id=>currentEngine.recorderTicket(id),
-  onRecorder:async(id,name,isNew)=>{await mounted?.settled();return currentEngine.beginRecording(id,name,isNew);},
-  onGuard:async(type,id)=>{
-   if(type==='view'){await mounted?.settled();await currentEngine.releaseEditors();return true;}
-   if(type==='game'){currentEngine.assertEditor(id);return true;}
-   if(type==='import')return askName();
-   if(type==='schedule'&&role!=='admin')throw Error('只有管理員可以修改賽程');
-   if(!documentRecorder)documentRecorder=await askName();
-   return Boolean(documentRecorder);
-  }
- });
- currentEngine.onChange=updateStatus;
- ui=mounted;
- currentEngine.onAuthLost=()=>{if(engine!==currentEngine)return;sessionStorage.removeItem(approvalKey);const previous=ui;previous?.destroy?.();void Promise.resolve(previous?.settled()).finally(()=>{if(ui!==previous)return;ui=null;gate('登入已失效，待同步草稿仍保留，請重新登入。');});};
- updateStatus();
+function askName(){return prompt('請填寫此次紀錄人員姓名（最多 32 字）：')?.trim()||null;}
+async function exclusive(action){if(busy)return;busy=true;updateStatus();el('app').inert=true;try{await ui?.settled();await action();}catch(error){failure(error);alert(error.message);}finally{busy=false;el('app').inert=false;updateStatus();}}
+function dialog(html){let host=el('driveDialogs');if(!host){host=document.createElement('div');host.id='driveDialogs';document.body.append(host);}host.innerHTML=`<dialog class="driveDialog" id="driveDialog">${html}<div class="modalFooter"><button class="btn" id="driveDialogClose">返回</button></div></dialog>`;el('driveDialogClose').onclick=()=>el('driveDialog').close();el('driveDialog').showModal();}
+async function prepareAuth(){if(!config)return;auth?.disconnect();const current=new DriveAuth(config);auth=current;authLoaded=false;authLoading=true;updateStatus();try{await current.ready();if(auth===current)authLoaded=true;}catch(error){if(auth===current){authLoaded=false;if(engine)failure(error);}}finally{if(auth===current){authLoading=false;updateStatus();}}}
+function settings(){dialog(`<h2>Google Drive 一次性連線設定</h2><p>不需要在公司電腦執行指令。管理員依<a href="./GOOGLE_DRIVE_SETUP.html" target="_blank" rel="noopener">設定步驟</a>取得三個公開欄位，再貼到這裡；不填 Google 密碼或 client secret。</p><form id="driveConfigForm"><div class="field"><label for="driveClientId">OAuth 網頁用戶端 ID</label><input id="driveClientId" autocomplete="off" value="${esc(config?.clientId||'')}"></div><div class="field"><label for="driveAppId">Google Cloud 專案編號（數字）</label><input id="driveAppId" inputmode="numeric" value="${esc(config?.appId||'')}"></div><div class="field"><label for="driveApiKey">Picker API 公開金鑰</label><input id="driveApiKey" autocomplete="off" value="${esc(config?.apiKey||'')}"></div><p id="driveConfigError" role="alert"></p><button class="btn primary" type="submit">保存公開設定</button></form><p class="small">只要求逐檔 <code>drive.file</code> 權限。公開設定留在此瀏覽器；授權 token 只在記憶體，不進備份或 GitHub。</p>`);
+ el('driveConfigForm').onsubmit=async event=>{event.preventDefault();try{const value=publicDriveConfig({clientId:el('driveClientId').value,appId:el('driveAppId').value,apiKey:el('driveApiKey').value});localStorage.setItem(CONFIG_KEY,JSON.stringify(value));config=value;el('driveDialog').close();engine.status='正在載入 Google 授權工具…';updateStatus();await prepareAuth();if(authLoaded){engine.status='公開設定已保存，請按「連接 Google Drive」授權。';updateStatus();}}catch(error){if(el('driveConfigError'))el('driveConfigError').textContent=error.message;}};
 }
-// Buttons survive scorebook renders through delegation. Ordinary mutation handlers
-// remain inside the original scorebook; auth/data access is owned here.
-document.addEventListener('click',async event=>{
+async function mount(repositoryKey,{folder=null,user=null,initial=null,demo=false}={}){
+ await ui?.settled();
+ if(navigator.locks&&repositoryKey!==lockKey){let nextRelease;const available=await new Promise(resolve=>navigator.locks.request('TR_DRIVE_WORKSPACE:'+repositoryKey,{ifAvailable:true},async lock=>{if(!lock){resolve(false);return;}await new Promise(r=>{nextRelease=r;resolve(true);});}));if(!available)throw new DriveError('這個瀏覽器已有同一工作區分頁，請回到原分頁，避免重複紀錄。','LOCAL_BUSY');releaseLock?.();releaseLock=nextRelease;lockKey=repositoryKey;}
+ ui?.destroy();documentRecorder='';
+ let holder=sessionStorage.getItem('TR_DRIVE_HOLDER:'+repositoryKey);if(!holder){holder=crypto.randomUUID();sessionStorage.setItem('TR_DRIVE_HOLDER:'+repositoryKey,holder);}
+ isDemo=demo;account=user;engine=await new DriveWorkspace({repository:new WorkspaceStore(repositoryKey),folder,accountId:user?.permissionId||'local',holder}).open(initial);
+ if(folder&&navigator.onLine){try{await engine.pull();}catch(error){failure(error);}}
+ const current=engine;
+ ui=mountScorebook({initialDb:engine.db,securityPanel:panel,onError:failure,onCapture:id=>current.ticket(id),
+  onRecorder:async(id,name)=>{await ui?.settled();documentRecorder=name;return current.beginRecording(id,name);},
+  onGuard:async(type,id)=>{if(type==='view')return true;if(type==='game'){if(!current.ticket(id))throw new DriveError('請先填寫本場紀錄員姓名。');return true;}if(type==='import')return askName();if(['roster','schedule'].includes(type)&&!documentRecorder){const name=askName();if(!name)return false;await current.becomeWriter(name);documentRecorder=name;}return true;},
+  onSave:async(value,ticket)=>{const old=documents(current.db),changes=Object.entries(documents(value)).filter(([k,v])=>!k.startsWith('game:')&&canonicalJSON(v)!==canonicalJSON(old[k]));if(changes.length&&!documentRecorder){const name=askName();if(!name)throw new DriveError('尚未填寫姓名；變更未保存，請先備份畫面草稿。');await current.becomeWriter(name);documentRecorder=name;}const saved=await current.save(value,ticket,{name:documentRecorder||ticket?.name});updateStatus();return saved;}});
+ current.onChange=updateStatus;updateStatus();
+}
+async function local(demo=false){const url=new URL(location.href);if(demo)url.searchParams.set('demo','1');else url.searchParams.delete('demo');history.replaceState(null,'',url);folderInfo=null;await mount('drive-'+(demo?'demo':'local')+':'+location.pathname,{initial:demo?demoData:null,demo});}
+async function bindFolder(id,user){
+ const api=apiForSession(),folder=new DriveFolder(api,id);let info;
+ try{info=await folder.inspect();}catch(error){if(error.code!=='NOT_FOUND')throw error;dialog('<h2>尚缺既有檔案或子資料夾授權</h2><p>只選主資料夾不會授權子目錄。請補選 games、backups、claims 子資料夾，以及需要的 JSON 版本檔，再重新讀取。若檔案已移除，請先保留備份並由資料夾擁有者還原。</p><div class="row"><button class="btn" id="grantDirectories">選取既有子資料夾</button><button class="btn" id="grantJsonFiles">選取既有 JSON 資料檔</button></div>');for(const [button,files] of [['grantDirectories',false],['grantJsonFiles',true]])el(button).onclick=async()=>{try{await auth.choose({files,parent:id,multiple:true});el('driveDialog').close();await bindFolder(id,user);}catch(e){alert(e.message);}};return;}
+ if(!info.initialized){dialog(`<h2>綁定 ${esc(info.name)}</h2><p>尚未讀到天睿隊伍入口。若資料夾已有紀錄，先授權既有的 <code>tianrui-team.json</code> 與 JSON 版本檔；選取資料夾不會自動授權所有子檔案。</p><div class="row"><button class="btn" id="grantBeforeInit">授權已有資料檔</button><button class="btn primary" id="initializeDrive">這是新資料夾，建立天睿入口</button></div><p class="small">只新增 games／backups／claims 及入口檔，不覆寫或刪除既有檔案。</p>`);
+  el('grantBeforeInit').onclick=async()=>{try{await auth.choose({files:true,parent:id});el('driveDialog').close();await bindFolder(id,user);}catch(error){alert(error.message);}};
+  el('initializeDrive').onclick=async()=>{el('initializeDrive').disabled=true;try{await folder.initialize();el('driveDialog').close();await bindFolder(id,user);}catch(error){alert(error.message);if(el('initializeDrive'))el('initializeDrive').disabled=false;}};return;
+ }
+ previousLocal=engine.folder?null:ui.getState();await backup('天睿_連接Drive前本機備份.json');folderInfo=info;await mount('drive-account:'+user.permissionId+':'+id,{folder,user});localStorage.setItem(BINDING_KEY,JSON.stringify({folderId:id,accountId:user.permissionId,name:info.name}));
+ if(previousLocal&&(previousLocal.clubRoster.length||previousLocal.games.length)&&!engine.db.clubRoster.length&&!engine.db.games.length){dialog('<h2>已連接空白隊伍</h2><p>原本本機資料已下載備份且仍留在原工作區。是否將這份本機名冊、賽程與比賽加入新的 Drive 隊伍？範例資料不會自動上傳。</p><button class="btn primary" id="uploadLocalDraft">加入本機資料</button>');el('uploadLocalDraft').onclick=()=>{el('driveDialog').close();void exclusive(async()=>{const name=askName();if(!name)return;await engine.becomeWriter(name);documentRecorder=name;await engine.save(previousLocal,null,{importing:true,name});await engine.flush();ui.replace(engine.db);});};}
+}
+async function importBackup(){await backup('天睿_還原前完整備份.json');const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=()=>void exclusive(async()=>{const file=input.files?.[0];if(!file)return;const restored=parseBackup(await decodeArchive(await file.text())),name=askName();if(!name)return;if(!confirm('已下載還原前備份。比賽以新 ID 加入、不覆蓋既有比賽；名冊與賽程只在目前為空時匯入。繼續？'))return;await engine.becomeWriter(name);documentRecorder=name;const value=engine.db;if(!value.clubRoster.length){value.clubRoster=restored.clubRoster;value.draft=restored.draft;value.scheduleDrafts=restored.scheduleDrafts;value.unlinkedDraft=restored.unlinkedDraft;}if(!value.schedule.games.length)value.schedule=restored.schedule;for(const g of restored.games){const clone=structuredClone(g);clone.importedFrom={id:g.id,time:new Date().toISOString()};clone.id='id_'+crypto.randomUUID().replaceAll('-','');value.games.push(clone);}value.settings=restored.settings||value.settings;value.logo=restored.logo||value.logo;await engine.save(value,null,{importing:true,name});ui.replace(engine.db);});input.click();}
+document.addEventListener('click',event=>{
  const id=event.target.closest('button')?.id;
- if(!engine||!ui)return;
- try {
-  if(id==='allBackup'){await ui.settled();download(backup(),'tianrui-workspace-backup.json');}
-  if(id==='cloudBackup'){await ui.settled();await engine.flush();download(await cloud.exportBackup(),'tianrui-cloud-audit-backup.json');}
-  if(id==='syncNow'){
-   if(syncBusy)return;
-   syncBusy=true;el('app').inert=true;el('app').setAttribute('aria-busy','true');
-   try{await ui.settled();await engine.flush();ui.replace(await engine.pull(),{preserveRecorder:true});}
-   finally{syncBusy=false;el('app').inert=false;el('app').setAttribute('aria-busy','false');updateStatus();}
-  }
-  if(id==='releaseRecording'){await ui.settled();await engine.flush();if(engine.pendingCount)throw Error('仍有未同步操作，請先備份並處理同步，尚未交出紀錄權。');await engine.releaseEditors();ui.replace(engine.db);engine.status='紀錄權已交出；再次紀錄需重新填寫姓名';updateStatus();}
-  if(id==='logout'){
-   await ui.settled();documentRecorder='';
-   await engine.releaseEditors().catch(()=>{});engine.editors.clear();
-   try{await cloud.signOut();}finally{sessionStorage.removeItem(`TR_APPROVED_V15:${cloud.url}`);releaseLock?.();releaseLock=null;location.reload();}
-  }
-  if(id==='importLegacy')await importWorkspace();
- }catch(error){alert(error.message);updateStatus();}
+ if(id==='driveSettings')return settings();
+ if(id==='driveConnect'){
+  if(isDemo){alert('目前為隔離的模擬範例，請先按「離開範例，使用我的球隊」。範例不會上傳。');return;}
+  if(!config)return settings();if(!authLoaded){engine.status='正在重新載入 Google 授權工具，完成後請再按連接。';updateStatus();void prepareAuth();return;}
+  const connected=auth.connect();void exclusive(async()=>{await connected;const api=apiForSession(),user=await api.about();if(account&&user.permissionId!==account.permissionId){localStorage.removeItem(BINDING_KEY);folderInfo=null;await mount('drive-unbound:'+user.permissionId,{user});engine.status='Google 帳號已切換，請選擇已獲授權的資料夾';updateStatus();}const picked=await auth.choose();if(picked[0])await bindFolder(picked[0].id,user);});return;
+ }
+ if(id==='driveSave'&&!engine.folder){el('driveTools').open=!el('driveTools').open;return;}
+ if(id==='driveSave')return void exclusive(()=>engine.flush());
+ if(id==='driveRefresh')return void exclusive(async()=>{ui.replace(await engine.pull(),{preserveRecorder:true});});
+ if(id==='driveBackup')return void exclusive(()=>backup());
+ if(id==='driveCloudBackup')return void exclusive(async()=>{if(!engine.folder||!auth?.getToken())throw new DriveError('請先連接 Google Drive。');await engine.folder.backup(JSON.parse(await archive()));engine.status='完整備份已另存 Drive；待儲存草稿狀態不變';});
+ if(id==='driveRelease')return void exclusive(async()=>{await engine.flush();await engine.release();ui.replace(engine.db);documentRecorder='';});
+ if(id==='driveGrant')return void exclusive(async()=>{if(!engine.folder||!auth?.getToken())throw new DriveError('請先連接 Google Drive。');await auth.choose({files:true,parent:engine.folder.folderId});ui.replace(await engine.pull());});
+ if(id==='driveImport')return void importBackup();
+ if(id==='driveLocal')return void exclusive(async()=>{await backup('天睿_切換前備份.json');if(engine.folder&&engine.writer&&!engine.pendingCount)await engine.release();auth?.disconnect();localStorage.removeItem(BINDING_KEY);await local(false);});
+ if(id==='driveDemo')return void exclusive(async()=>{await backup('天睿_進入範例前備份.json');if(engine.folder&&engine.writer&&!engine.pendingCount)await engine.release();auth?.disconnect();await local(true);});
+ if(id==='driveLegacy'){const raw=localStorage.getItem('TR_BASEBALL_OFFLINE_V1');if(raw)download(raw,'天睿_舊版本機備份.json');else alert('此裝置沒有舊版本機資料。');}
 });
-async function importWorkspace(){
- await ui.settled();download(backup(),'tianrui-before-import.json');
- const input=document.createElement('input');input.type='file';input.accept='.json';
- input.onchange=async()=>{try{
-  const file=input.files?.[0];if(!file)return;
-  const restored=parseBackup(await decodeArchive(await file.text()));
-  const name=await askName();if(!name)return;
-  if(!confirm('已下載匯入前備份。比賽會以新 ID 新增，不覆蓋雲端既有比賽；名冊只在雲端與待同步名冊均為空時匯入。繼續？'))return;
-  const db=engine.db;
-  if(!db.clubRoster.length&&!engine.workspace.revisions['roster:roster']&&!engine.workspace.pending.some(p=>p.type==='roster')){db.clubRoster=restored.clubRoster||[];db.draft=restored.draft||null;db.scheduleDrafts=restored.scheduleDrafts||{};db.unlinkedDraft=restored.unlinkedDraft||null;documentRecorder=name;}
-  if(role==='admin'&&!db.schedule.games.length&&!engine.workspace.pending.some(p=>p.type==='schedule')&&restored.schedule){db.schedule=restored.schedule;documentRecorder=name;}
-  await engine.releaseEditors();
-  for(const game of restored.games){const cloned=structuredClone(game);cloned.importedFrom={id:game.id,time:new Date().toISOString()};if(cloned.auditTrail){cloned.importedAuditTrail=cloned.auditTrail;delete cloned.auditTrail;}cloned.id=`id_${crypto.randomUUID().replaceAll('-','')}`;db.games.push(cloned);}
-  // Preferences remain local. Import only known fields, never credentials/outbox IDs.
-  if(restored.settings)db.settings={scale:Number(restored.settings.scale)||1,pitchView:restored.settings.pitchView==='combined'?'combined':'split',quickScoring:normalizeConfig(restored.settings.quickScoring)};
-  if(restored.logo)db.logo=restored.logo;
-  await engine.commit(db,documentRecorder||name,'IMPORT_BACKUP',true);ui.replace(engine.db);updateStatus();void engine.flush().catch(error=>{engine.status=error.message;updateStatus();});
- }catch(error){alert('匯入失敗：'+error.message);}};
- input.click();
-}
-setInterval(()=>{if(engine&&ui){void engine.heartbeat();void engine.flush().catch(()=>{});}},30000);
-addEventListener('online',()=>{if(engine&&ui)void engine.flush().catch(()=>{});});
-addEventListener('offline',()=>{if(engine){engine.status='離線待同步；無法確認其他裝置操作';updateStatus();}});
-// Updating only text avoids destroying partially completed forms during sync.
+setInterval(()=>{if(busy||!engine?.folder)return;void engine.heartbeat().then(()=>engine.flush()).catch(failure);},30000);
+addEventListener('online',()=>{if(engine?.folder&&!busy)void engine.flush().catch(failure);});
+addEventListener('offline',()=>{if(engine){engine.status='離線・僅保存在本機，尚未存到 Drive';updateStatus();}});
 new MutationObserver(()=>{if(engine&&el('syncStatus')&&!el('syncStatus').textContent)updateStatus();}).observe(el('app'),{childList:true,subtree:true});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js').catch(()=>{});
-if(!cloudConfig)gate('天睿專案已建立，網站連線設定尚未完成；目前無法登入或同步。請管理員完成一次性設定。舊版本機資料保留，可先下載備份。');
-else {
- try{validatePublicConfig(cloudConfig,{emulators:['localhost','127.0.0.1'].includes(location.hostname)});cloud=new TianRuiCloud(cloudConfig);await cloud.ready;if(cloud.signedIn)await start();else gate();}
- catch(error){gate(error.message);}
-}
+try{let binding=null;try{binding=JSON.parse(localStorage.getItem(BINDING_KEY)||'null');}catch{}const demo=new URL(location.href).searchParams.get('demo')==='1';const cacheKey=binding?'drive-account:'+binding.accountId+':'+binding.folderId:null;
+ if(!demo&&cacheKey&&await new WorkspaceStore(cacheKey).read()){await mount(cacheKey,{user:{permissionId:binding.accountId}});folderInfo={name:binding.name,canEdit:false};engine.status='Drive 快取草稿・尚未重新授權，修改僅保存在本機';updateStatus();}else await local(demo);
+ if(config)void prepareAuth();}catch(error){el('app').innerHTML='<section class="card"><h1>工作區未開啟</h1><p role="alert">'+esc(error.message)+'</p><p>原資料仍保留；請回到既有分頁或先下載備份。</p></section>';}

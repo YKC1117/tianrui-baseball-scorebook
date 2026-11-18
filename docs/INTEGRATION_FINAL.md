@@ -1,5 +1,7 @@
 # 天睿 v1.5 整合收尾
 
+> **已由 Google Drive 方案取代（2026-11-18）：** 本文保留舊工程紀錄。請看 [Google Drive 候選版交付與限制](GOOGLE_DRIVE_REVIEW.md)，不再要求 Firebase 設定。
+
 依 2026-11-17 [施工留言 #6950147851](https://github.com/YKC1117/tianrui-baseball-scorebook/pull/3#issuecomment-6950147851)，分支 `work/integration-final-v15` 從 UI `5a09a70` 接續（已含 Firebase `6cc3f78`）。僅有一個整合收尾分支／Draft PR，不合併或替換 main 正式入口。
 
 ## 已完成的工程

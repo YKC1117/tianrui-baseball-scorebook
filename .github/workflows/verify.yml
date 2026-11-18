@@ -7,7 +7,7 @@ permissions:
   contents: read
 jobs:
   offline-verification:
-    if: ${{ !startsWith(github.head_ref || github.ref_name, 'work/ui-ux') && !startsWith(github.head_ref || github.ref_name, 'work/integration-final') }}
+    if: ${{ !startsWith(github.head_ref || github.ref_name, 'work/ui-ux') && !startsWith(github.head_ref || github.ref_name, 'work/integration-final') && !startsWith(github.head_ref || github.ref_name, 'work/drive-') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

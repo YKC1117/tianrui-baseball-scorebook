@@ -1,0 +1,30 @@
+name: Google Drive candidate
+on:
+  pull_request:
+jobs:
+  drive-verification:
+    if: startsWith(github.head_ref, 'work/drive-')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm test
+      - name: Install Chromium and WebKit
+        run: |
+          sudo sed -i 's|^URIs:.*|URIs: https://archive.ubuntu.com/ubuntu/|' /etc/apt/sources.list.d/ubuntu.sources
+          npx playwright install --with-deps chromium webkit
+      - name: Test the actual Drive bundle with a synthetic Drive/OAuth contract
+        run: npm run test:drive:browser
+      - name: Preserve all approved UI and baseball scoring flows
+        run: npm run test:ui
+      - run: git diff --exit-code -- preview/demo-data.json preview/tianrui-ui-preview.html
+      - run: npm run build:drive
+      - run: npm run privacy:inventory
