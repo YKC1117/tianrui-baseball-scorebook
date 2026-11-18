@@ -1,9 +1,10 @@
 {
-  "format": "TR-RELEASE-1",
-  "project": "tianrui-baseball",
+  "format": "TR-DRIVE-RELEASE-1",
+  "storage": "Google Drive",
+  "version": "62d4bb21af423ced",
   "configured": false,
-  "deployable": false,
-  "version": "9ee5e0b1752189c4",
-  "remoteAcceptance": "UNVERIFIED",
-  "hardwareAcceptance": "UNVERIFIED"
+  "realGoogleAcceptance": "UNVERIFIED",
+  "hardwareAcceptance": "UNVERIFIED",
+  "mode": "single-recorder/others-view",
+  "atomicCAS": false
 }
